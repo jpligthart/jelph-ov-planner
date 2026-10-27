@@ -12,6 +12,9 @@ import {
   DEFAULT_FILTERS,
   FILTER_MODES,
   SORT_LABELS,
+  TRANSFER_CHOICES,
+  WALK_CHOICES,
+  isDefaultFilters,
   activeFilterCount,
   applyFilters,
   computeBadges,
@@ -210,20 +213,19 @@ export function App() {
   const places = recentPlaces(recent);
 
   const filterPills: Array<{ key: string; label: string; clear: Partial<Filters> }> = [];
+  const walkPill = WALK_CHOICES.find((c) => c.value === filters.maxWalk)?.pill;
   if (filters.maxWalk !== null) {
     filterPills.push({
       key: "walk",
-      label: `Max ${formatDistance(filters.maxWalk)} lopen`,
+      label: walkPill || `Max ${formatDistance(filters.maxWalk)} lopen`,
       clear: { maxWalk: null },
     });
   }
+  const transferPill = TRANSFER_CHOICES.find((c) => c.value === filters.maxTransfers)?.pill;
   if (filters.maxTransfers !== null) {
     filterPills.push({
       key: "transfers",
-      label:
-        filters.maxTransfers === 0
-          ? "Alleen direct"
-          : `Max ${filters.maxTransfers} overstap${filters.maxTransfers > 1 ? "pen" : ""}`,
+      label: transferPill || `Max ${filters.maxTransfers} overstappen`,
       clear: { maxTransfers: null },
     });
   }
@@ -344,6 +346,15 @@ export function App() {
                   Filters
                   {filterCount > 0 ? <span className="count">{filterCount}</span> : null}
                 </h2>
+                {!isDefaultFilters(filters) ? (
+                  <button
+                    type="button"
+                    className="link-button sheet-reset"
+                    onClick={() => setFilters({ ...DEFAULT_FILTERS, sort: filters.sort })}
+                  >
+                    Herstellen
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   className="icon-button sheet-close"

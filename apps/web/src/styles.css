@@ -770,101 +770,51 @@ button {
   font-size: 0.78rem;
 }
 
-.range {
-  --fill: 100%;
-  width: 100%;
-  height: 28px;
-  margin: 0;
-  appearance: none;
-  background: transparent;
-  cursor: pointer;
-}
-
-.range::-webkit-slider-runnable-track {
-  height: 6px;
-  border-radius: 999px;
-  background: linear-gradient(to right, var(--primary) var(--fill), var(--line) var(--fill));
-}
-
-.range::-moz-range-track {
-  height: 6px;
-  border-radius: 999px;
-  background: linear-gradient(to right, var(--primary) var(--fill), var(--line) var(--fill));
-}
-
-.range::-webkit-slider-thumb {
-  appearance: none;
-  width: 22px;
-  height: 22px;
-  margin-top: -8px;
-  border-radius: 50%;
-  background: var(--surface);
-  border: 3px solid var(--primary);
-  box-shadow: var(--shadow);
-}
-
-.range::-moz-range-thumb {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: var(--surface);
-  border: 3px solid var(--primary);
-}
-
-.range-scale {
+.chip-row {
   display: flex;
-  justify-content: space-between;
-  font-size: 0.72rem;
-  color: var(--muted);
-  font-variant-numeric: tabular-nums;
+  flex-wrap: wrap;
+  gap: 0.4rem;
 }
 
-.segmented--4 button {
-  padding: 0.45rem 0.25rem;
-  font-size: 0.9rem;
-}
-
-.mode-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
-  gap: 0.45rem;
-}
-
-.mode-toggle {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  min-height: 44px;
-  padding: 0 0.7rem;
-  border-radius: 12px;
-  border: 1px solid var(--line);
-  background: var(--surface);
-  color: var(--muted);
-  font-weight: 600;
-  font-size: 0.9rem;
-  transition: all 0.15s;
-}
-
-.mode-toggle svg {
+.mode-chip-toggle {
+  min-height: 36px;
+  padding: 0 0.8rem 0 0.65rem;
   color: var(--muted);
 }
 
-.mode-toggle.is-on {
-  border-color: color-mix(in srgb, var(--primary) 45%, transparent);
-  background: var(--primary-soft);
+.mode-chip-toggle svg {
+  color: var(--muted);
+}
+
+.mode-chip-toggle.is-on svg {
   color: var(--primary);
 }
 
-.mode-toggle.is-on svg {
-  color: var(--primary);
-}
-
-.mode-toggle:not(.is-on) span {
+.mode-chip-toggle:not(.is-on) {
   text-decoration: line-through;
+  background: var(--surface-2);
 }
 
-.mode-toggle.is-absent {
-  opacity: 0.55;
+/* Width follows the label, so "Geen limiet" never wraps next to "1". */
+.filters .segmented {
+  display: flex;
+}
+
+.filters .segmented button {
+  flex: 1 1 auto;
+  white-space: nowrap;
+  padding: 0.4rem 0.6rem;
+  min-height: 36px;
+  font-size: 0.88rem;
+}
+
+.sheet-head h2 {
+  margin-right: auto;
+}
+
+.sheet-reset {
+  font-size: 0.88rem;
+  padding: 0.25rem 0.5rem;
 }
 
 .sheet-done {

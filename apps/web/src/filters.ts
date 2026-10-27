@@ -24,8 +24,8 @@ export type Filters = {
 };
 
 export const DEFAULT_FILTERS: Filters = {
-  // Hides "train + 40 minutes on foot" options; easy to widen in the panel.
-  maxWalk: 1500,
+  // About 10 minutes on foot: hides "train + 40 min walk" options.
+  maxWalk: 800,
   maxTransfers: null,
   modes: [...FILTER_MODES],
   sort: "departure",
@@ -39,7 +39,27 @@ export const SORT_LABELS: Record<SortKey, string> = {
   walk: "Minst lopen",
 };
 
-export const WALK_STEPS = [300, 500, 750, 1000, 1500, 2000, 2500];
+// Walking is felt as time, not meters (80 m per minute).
+export const WALK_CHOICES: Array<{ value: number | null; label: string; pill: string }> = [
+  { value: 400, label: "Weinig", pill: "Weinig lopen" },
+  { value: 800, label: "± 10 min", pill: "Max ± 10 min lopen" },
+  { value: null, label: "Geen limiet", pill: "" },
+];
+
+export const TRANSFER_CHOICES: Array<{ value: number | null; label: string; pill: string }> = [
+  { value: 0, label: "Direct", pill: "Alleen direct" },
+  { value: 1, label: "1", pill: "Max 1 overstap" },
+  { value: 2, label: "2", pill: "Max 2 overstappen" },
+  { value: null, label: "Geen limiet", pill: "" },
+];
+
+export function isDefaultFilters(filters: Filters): boolean {
+  return (
+    filters.maxWalk === DEFAULT_FILTERS.maxWalk &&
+    filters.maxTransfers === DEFAULT_FILTERS.maxTransfers &&
+    filters.modes.length === DEFAULT_FILTERS.modes.length
+  );
+}
 
 export function optionModes(option: PlanOption): Set<ModeKind> {
   return new Set(option.legs.map((leg) => modeKind(leg.modality)));
