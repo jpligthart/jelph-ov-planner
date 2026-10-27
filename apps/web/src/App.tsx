@@ -12,8 +12,6 @@ import {
   DEFAULT_FILTERS,
   FILTER_MODES,
   SORT_LABELS,
-  TRANSFER_CHOICES,
-  WALK_CHOICES,
   isDefaultFilters,
   activeFilterCount,
   applyFilters,
@@ -25,10 +23,8 @@ import {
   type SortKey,
 } from "./filters";
 import {
-  MODE_LABELS,
   doorArrival,
   doorDeparture,
-  formatDistance,
   friendlyError,
   isCoords,
   placeLabel,
@@ -221,33 +217,6 @@ export function App() {
   const toTitle = result ? placeLabel(result.to.label) : "";
   const places = recentPlaces(recent);
 
-  const filterPills: Array<{ key: string; label: string; clear: Partial<Filters> }> = [];
-  // Pills show what the user changed; the cross returns to the default.
-  if (filters.maxWalk !== DEFAULT_FILTERS.maxWalk) {
-    const pill = WALK_CHOICES.find((c) => c.value === filters.maxWalk)?.pill;
-    filterPills.push({
-      key: "walk",
-      label: pill || `Max ${formatDistance(filters.maxWalk ?? 0)} lopen`,
-      clear: { maxWalk: DEFAULT_FILTERS.maxWalk },
-    });
-  }
-  if (filters.maxTransfers !== DEFAULT_FILTERS.maxTransfers) {
-    const pill = TRANSFER_CHOICES.find((c) => c.value === filters.maxTransfers)?.pill;
-    filterPills.push({
-      key: "transfers",
-      label: pill || `Max ${filters.maxTransfers} overstappen`,
-      clear: { maxTransfers: DEFAULT_FILTERS.maxTransfers },
-    });
-  }
-  if (filters.modes.length !== DEFAULT_FILTERS.modes.length) {
-    const off = FILTER_MODES.filter((m) => !filters.modes.includes(m));
-    filterPills.push({
-      key: "modes",
-      label: `Zonder ${off.map((m) => MODE_LABELS[m].toLowerCase()).join(", ")}`,
-      clear: { modes: [...FILTER_MODES] },
-    });
-  }
-
   const showForm = !(isMobile && collapsed && result);
 
   return (
@@ -405,71 +374,56 @@ export function App() {
 
           {result || loading ? (
             <>
-              <div className="results-head">
-                {result ? (
-                  <h1 className="results-title">
-                    <span>{fromTitle}</span>
-                    <ArrowRightIcon size={18} />
-                    <span>{toTitle}</span>
-                  </h1>
-                ) : (
-                  <h1 className="results-title">Reizen zoeken…</h1>
-                )}
-                {searched ? (
-                  <p className="results-sub">{describeChoice(searched.choice)}</p>
-                ) : null}
-              </div>
-
-              <div className="toolbar">
-                <button
-                  type="button"
-                  className={`chip chip--filter${filterCount > 0 ? " is-on" : ""}`}
-                  onClick={() => setFiltersOpen(true)}
-                >
-                  <FilterIcon size={16} />
-                  Filters
-                  {filterCount > 0 ? <span className="count">{filterCount}</span> : null}
-                </button>
-                <label className="sort">
-                  <span className="sr-only">Sorteren</span>
-                  <select
-                    value={filters.sort}
-                    onChange={(e) =>
-                      setFilters({ ...filters, sort: e.target.value as SortKey })
-                    }
-                  >
-                    {(Object.keys(SORT_LABELS) as SortKey[]).map((key) => (
-                      <option key={key} value={key}>
-                        {SORT_LABELS[key]}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                {result ? (
-                  <span className="result-count">
-                    {hiddenCount > 0
-                      ? `${visible.length} van ${pool.length}`
-                      : `${visible.length} ${visible.length === 1 ? "reis" : "reizen"}`}
-                  </span>
-                ) : null}
-              </div>
-
-              {filterPills.length > 0 ? (
-                <div className="pills">
-                  {filterPills.map((pill) => (
-                    <button
-                      key={pill.key}
-                      type="button"
-                      className="pill"
-                      onClick={() => setFilters({ ...filters, ...pill.clear })}
-                      aria-label={`Filter verwijderen: ${pill.label}`}
-                    >
-                      {pill.label}
-                      <CloseIcon size={14} />
-                    </button>
-                  ))}
+              <div className="results-top">
+                <div className="results-head">
+                  {result ? (
+                    <h1 className="results-title" title={`${fromTitle} → ${toTitle}`}>
+                      <span>{fromTitle}</span>
+                      <ArrowRightIcon size={18} />
+                      <span>{toTitle}</span>
+                    </h1>
+                  ) : (
+                    <h1 className="results-title">Reizen zoeken…</h1>
+                  )}
+                  {searched ? (
+                    <p className="results-sub">{describeChoice(searched.choice)}</p>
+                  ) : null}
                 </div>
-              ) : null}
+
+                <div className="toolbar">
+                  <button
+                    type="button"
+                    className={`chip chip--filter${filterCount > 0 ? " is-on" : ""}`}
+                    onClick={() => setFiltersOpen(true)}
+                  >
+                    <FilterIcon size={16} />
+                    Filters
+                    {filterCount > 0 ? <span className="count">{filterCount}</span> : null}
+                  </button>
+                  <label className="sort">
+                    <span className="sr-only">Sorteren</span>
+                    <select
+                      value={filters.sort}
+                      onChange={(e) =>
+                        setFilters({ ...filters, sort: e.target.value as SortKey })
+                      }
+                    >
+                      {(Object.keys(SORT_LABELS) as SortKey[]).map((key) => (
+                        <option key={key} value={key}>
+                          {SORT_LABELS[key]}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  {result ? (
+                    <span className="result-count">
+                      {hiddenCount > 0
+                        ? `${visible.length} van ${pool.length}`
+                        : `${visible.length} ${visible.length === 1 ? "reis" : "reizen"}`}
+                    </span>
+                  ) : null}
+                </div>
+              </div>
 
               {loading ? (
                 <ol className="option-list" aria-hidden="true">

@@ -41,17 +41,17 @@ export const SORT_LABELS: Record<SortKey, string> = {
 };
 
 // Limit per stretch on foot, felt as time rather than meters (80 m per minute).
-export const WALK_CHOICES: Array<{ value: number | null; label: string; pill: string }> = [
-  { value: 400, label: "± 5 min", pill: "Max ± 5 min lopen" },
-  { value: 800, label: "± 10 min", pill: "Max ± 10 min lopen" },
-  { value: null, label: "Geen limiet", pill: "Lopen zonder limiet" },
+export const WALK_CHOICES: Array<{ value: number | null; label: string }> = [
+  { value: 400, label: "± 5 min" },
+  { value: 800, label: "± 10 min" },
+  { value: null, label: "Geen limiet" },
 ];
 
-export const TRANSFER_CHOICES: Array<{ value: number | null; label: string; pill: string }> = [
-  { value: 0, label: "Direct", pill: "Alleen direct" },
-  { value: 1, label: "1", pill: "Max 1 overstap" },
-  { value: 2, label: "2", pill: "Max 2 overstappen" },
-  { value: null, label: "Geen limiet", pill: "" },
+export const TRANSFER_CHOICES: Array<{ value: number | null; label: string }> = [
+  { value: 0, label: "Direct" },
+  { value: 1, label: "1" },
+  { value: 2, label: "2" },
+  { value: null, label: "Geen limiet" },
 ];
 
 export function isDefaultFilters(filters: Filters): boolean {
