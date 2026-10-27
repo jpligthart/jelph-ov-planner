@@ -2,7 +2,7 @@
   "name": "jelph-ov-planner",
   "private": true,
   "version": "0.3.0",
-  "license": "MIT",
+  "license": "GPL-3.0-or-later",
   "description": "Jelph OV Planner — smarter multimodal route planning for the Netherlands",
 
   "workspaces": [

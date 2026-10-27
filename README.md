@@ -155,7 +155,7 @@ Planning resolved adressen via NS Places, daarna:
 2. **NS** station fan-out + loopafstand
 3. **[Transitous](https://transitous.org/)** MOTIS multimodaal (bus/tram/metro/trein)
 
-NsApp-keys geven typisch `API_KEY_NOT_ALLOWED_TO_PLAN_DOOR_TO_DOOR`; Transitous vangt dat op voor non-commercieel / FOSS fair-use (MIT, zie `LICENSE`). Attributie: [Transitous sources](https://transitous.org/sources/) en © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright) (ODbL).
+NsApp-keys geven typisch `API_KEY_NOT_ALLOWED_TO_PLAN_DOOR_TO_DOOR`; Transitous vangt dat op voor non-commercieel / FOSS fair-use (**GPL-3.0-or-later**, zie `LICENSE`). Attributie: [Transitous sources](https://transitous.org/sources/) en © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright) (ODbL).
 
 Uitzetten met `TRANSITOUS_ENABLED=false` indien nodig.
 
