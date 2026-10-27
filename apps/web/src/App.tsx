@@ -75,6 +75,8 @@ type Search = {
   to: string;
   choice: TimeChoice;
   radius: number;
+  /** Resolved search time; "now" is frozen at the moment of searching. */
+  at: number;
 };
 
 export function App() {
@@ -106,19 +108,26 @@ export function App() {
 
   const markTouched = useCallback(() => setTimeTouched(true), []);
 
-  const visible = useMemo(
-    () => (result ? applyFilters(result.options, filters) : []),
-    [result, filters],
-  );
+  // Departures before the requested time can't be caught; drop them.
+  const pool = useMemo(() => {
+    if (!result) return [];
+    if (!searched || searched.choice.mode === "arrive") return result.options;
+    const earliest = searched.at - 60000;
+    return result.options.filter(
+      (o) => (doorDeparture(o)?.getTime() ?? earliest) >= earliest,
+    );
+  }, [result, searched]);
+
+  const visible = useMemo(() => applyFilters(pool, filters), [pool, filters]);
   const badges = useMemo(() => computeBadges(visible), [visible]);
   const availableModes = useMemo(() => {
     const set = new Set<string>();
-    for (const o of result?.options ?? []) for (const m of optionModes(o)) set.add(m);
+    for (const o of pool) for (const m of optionModes(o)) set.add(m);
     return result ? set : undefined;
-  }, [result]);
+  }, [result, pool]);
 
   const filterCount = activeFilterCount(filters);
-  const hiddenCount = (result?.options.length ?? 0) - visible.length;
+  const hiddenCount = pool.length - visible.length;
   const wantedRadius = searchRadius(filters.maxWalk);
   const radiusTooSmall = searched !== null && wantedRadius > searched.radius;
 
@@ -129,13 +138,14 @@ export function App() {
 
     const id = ++requestId.current;
     const radius = searchRadius(filters.maxWalk);
+    const at = choiceDate(next.choice);
     setLoading(true);
     setError(null);
     try {
       const data = await planTrip({
         from: f,
         to: t,
-        dateTime: choiceDate(next.choice).toISOString(),
+        dateTime: at.toISOString(),
         searchForArrival: next.choice.mode === "arrive",
         maxWalkMeters: radius,
         maxNearby: 3,
@@ -143,7 +153,7 @@ export function App() {
       });
       if (id !== requestId.current) return;
       setResult(data);
-      setSearched({ from: f, to: t, choice: next.choice, radius });
+      setSearched({ from: f, to: t, choice: next.choice, radius, at: at.getTime() });
       if (!isCoords(f) && !isCoords(t)) setRecent(pushRecent({ from: f, to: t }));
       if (isMobile) setCollapsed(true);
     } catch (err) {
@@ -410,7 +420,7 @@ export function App() {
                 {result ? (
                   <span className="result-count">
                     {hiddenCount > 0
-                      ? `${visible.length} van ${result.options.length}`
+                      ? `${visible.length} van ${pool.length}`
                       : `${visible.length} ${visible.length === 1 ? "reis" : "reizen"}`}
                   </span>
                 ) : null}
@@ -456,7 +466,7 @@ export function App() {
                     </li>
                   ))}
                 </ol>
-              ) : result && result.options.length === 0 ? (
+              ) : result && pool.length === 0 ? (
                 <div className="empty">
                   <h2>Geen reis gevonden</h2>
                   <p>Probeer een ander tijdstip of controleer de adressen.</p>

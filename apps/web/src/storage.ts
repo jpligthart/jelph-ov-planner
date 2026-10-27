@@ -1,6 +1,6 @@
 import { DEFAULT_FILTERS, FILTER_MODES, type Filters } from "./filters";
 
-const FILTERS_KEY = "jelph.filters.v1";
+const FILTERS_KEY = "jelph.filters.v2";
 const RECENT_KEY = "jelph.recent.v1";
 const MAX_RECENT = 5;
 

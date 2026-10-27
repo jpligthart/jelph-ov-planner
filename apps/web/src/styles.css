@@ -19,12 +19,12 @@
   --danger: #dc2626;
   --danger-soft: #fee2e2;
 
-  --mode-train: #2f5bff;
-  --mode-bus: #f08c00;
-  --mode-tram: #0ca678;
-  --mode-metro: #ae3ec9;
-  --mode-ferry: #1098ad;
-  --mode-walk: #94a3b8;
+  --mode-train: #4f6ef7;
+  --mode-bus: #e8a33d;
+  --mode-tram: #3fae8c;
+  --mode-metro: #a66bd1;
+  --mode-ferry: #3a9fb5;
+  --mode-walk: #b6c0cf;
   --mode-other: #64748b;
 
   --radius: 16px;
@@ -55,12 +55,12 @@
     --warn-soft: #33270b;
     --danger: #f87171;
     --danger-soft: #3a1515;
-    --mode-train: #6b8cff;
-    --mode-bus: #ffa94d;
-    --mode-tram: #38d9a9;
-    --mode-metro: #da77f2;
-    --mode-ferry: #3bc9db;
-    --mode-walk: #64748b;
+    --mode-train: #6f89f0;
+    --mode-bus: #d9a052;
+    --mode-tram: #4fb596;
+    --mode-metro: #b48ad6;
+    --mode-ferry: #52a9bc;
+    --mode-walk: #4a5670;
     --shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 4px 16px rgb(0 0 0 / 0.25);
     --shadow-lg: 0 12px 40px rgb(0 0 0 / 0.5);
     color-scheme: dark;
@@ -277,6 +277,7 @@ button {
   padding: 0.1rem 0 0.6rem;
   font-size: 1rem;
   font-weight: 600;
+  text-overflow: ellipsis;
   outline: none;
 }
 
@@ -843,13 +844,13 @@ button {
 }
 
 .mode-toggle.is-on {
-  border-color: color-mix(in srgb, var(--mode) 50%, transparent);
-  background: color-mix(in srgb, var(--mode) 10%, var(--surface));
-  color: var(--ink);
+  border-color: color-mix(in srgb, var(--primary) 45%, transparent);
+  background: var(--primary-soft);
+  color: var(--primary);
 }
 
 .mode-toggle.is-on svg {
-  color: var(--mode);
+  color: var(--primary);
 }
 
 .mode-toggle:not(.is-on) span {
@@ -1018,20 +1019,11 @@ button {
 .badge {
   font-size: 0.72rem;
   font-weight: 700;
-  padding: 0.18rem 0.55rem;
+  padding: 0.15rem 0.55rem;
   border-radius: 999px;
-  background: var(--primary-soft);
-  color: var(--primary);
-}
-
-.badge--leastWalk {
-  background: var(--success-soft);
-  color: var(--success);
-}
-
-.badge--fewestTransfers {
-  background: var(--warn-soft);
-  color: var(--warn);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  color: var(--ink-2);
 }
 
 .option-top {
@@ -1072,7 +1064,7 @@ button {
   position: relative;
   display: flex;
   gap: 3px;
-  height: 8px;
+  height: 6px;
   border-radius: 999px;
   background: var(--surface-2);
   overflow: hidden;
@@ -1119,9 +1111,13 @@ button {
   padding: 0.2rem 0.5rem;
   border-radius: 7px;
   font-size: 0.8rem;
-  font-weight: 700;
-  background: color-mix(in srgb, var(--mode) 12%, var(--surface));
-  color: color-mix(in srgb, var(--mode) 80%, var(--ink));
+  font-weight: 600;
+  background: var(--surface-2);
+  color: var(--ink-2);
+}
+
+.mode-chip svg {
+  color: var(--mode);
 }
 
 .option-facts {

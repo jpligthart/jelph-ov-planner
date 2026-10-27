@@ -27,12 +27,12 @@ export const DEFAULT_FILTERS: Filters = {
   maxWalk: null,
   maxTransfers: null,
   modes: [...FILTER_MODES],
-  sort: "fastest",
+  sort: "departure",
 };
 
 export const SORT_LABELS: Record<SortKey, string> = {
-  fastest: "Snelst",
   departure: "Vertrektijd",
+  fastest: "Snelst",
   arrival: "Aankomsttijd",
   transfers: "Minste overstappen",
   walk: "Minst lopen",
