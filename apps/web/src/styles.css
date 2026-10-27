@@ -690,6 +690,12 @@ button {
   white-space: nowrap;
 }
 
+/* Short origins stay readable; the destination takes the truncation. */
+.summary-place:first-child {
+  flex-shrink: 0;
+  max-width: 45%;
+}
+
 .summary-meta {
   grid-column: 1;
   display: inline-flex;
@@ -1017,13 +1023,21 @@ button {
 }
 
 .badge {
-  font-size: 0.72rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.78rem;
   font-weight: 700;
-  padding: 0.15rem 0.55rem;
+  padding: 0.25rem 0.65rem 0.25rem 0.55rem;
   border-radius: 999px;
-  background: var(--surface-2);
-  border: 1px solid var(--line);
-  color: var(--ink-2);
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+/* The overall winner gets the one filled badge, so it reads at a glance. */
+.badge--recommended {
+  background: var(--primary);
+  color: var(--primary-ink);
 }
 
 .option-top {

@@ -24,7 +24,8 @@ export type Filters = {
 };
 
 export const DEFAULT_FILTERS: Filters = {
-  maxWalk: null,
+  // Hides "train + 40 minutes on foot" options; easy to widen in the panel.
+  maxWalk: 1500,
   maxTransfers: null,
   modes: [...FILTER_MODES],
   sort: "departure",
@@ -90,18 +91,51 @@ export function activeFilterCount(filters: Filters): number {
   return count;
 }
 
-export type Badge = "fastest" | "leastWalk" | "fewestTransfers";
+export type Badge = "recommended" | "fastest" | "leastWalk" | "fewestTransfers";
 
 export const BADGE_LABELS: Record<Badge, string> = {
+  recommended: "Aanrader",
   fastest: "Snelst",
   leastWalk: "Minst lopen",
   fewestTransfers: "Minste overstappen",
 };
 
+export type SearchContext = { mode: "depart" | "arrive"; at: number };
+
+/**
+ * Overall "best" trip in minutes-equivalent (lower is better): travel time,
+ * plus half the time you wait for it, plus a penalty per transfer and for
+ * walking beyond a comfortable distance.
+ */
+function recommendScore(option: PlanOption, context: SearchContext): number {
+  const MIN = 60000;
+  const wait =
+    context.mode === "arrive"
+      ? (context.at - (doorArrival(option)?.getTime() ?? context.at)) / MIN
+      : ((doorDeparture(option)?.getTime() ?? context.at) - context.at) / MIN;
+  const extraWalk = Math.max(0, walkMetersTotal(option) - 600) / 80;
+  return (
+    option.totalDoorToDoorMinutes +
+    0.5 * Math.max(0, wait) +
+    4 * option.transfers +
+    0.5 * extraWalk
+  );
+}
+
 /** Highlight the stand-out options in the visible list. */
-export function computeBadges(options: PlanOption[]): Map<string, Badge[]> {
+export function computeBadges(
+  options: PlanOption[],
+  context?: SearchContext,
+): Map<string, Badge[]> {
   const badges = new Map<string, Badge[]>();
   if (options.length < 2) return badges;
+
+  if (context) {
+    const best = options.reduce((a, b) =>
+      recommendScore(b, context) < recommendScore(a, context) ? b : a,
+    );
+    badges.set(best.id, ["recommended"]);
+  }
 
   const add = (id: string, badge: Badge) =>
     badges.set(id, [...(badges.get(id) ?? []), badge]);

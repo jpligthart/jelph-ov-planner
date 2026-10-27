@@ -76,6 +76,24 @@ export const DotIcon = (p: IconProps) => (
   </Svg>
 );
 
+export const BoltIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M13 2L4 14h7l-1 8 9-12h-7l1-8z" />
+  </Svg>
+);
+
+export const StarIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z" />
+  </Svg>
+);
+
+export const TransferIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M4 12h16M14 6l6 6-6 6" />
+  </Svg>
+);
+
 export const SwapIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M7 4v16M3 8l4-4 4 4M17 20V4M13 16l4 4 4-4" />

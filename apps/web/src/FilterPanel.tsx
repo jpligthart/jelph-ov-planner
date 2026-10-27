@@ -122,7 +122,7 @@ export function FilterPanel({ filters, onChange, availableModes }: Props) {
         className="link-button"
         onClick={() => onChange({ ...DEFAULT_FILTERS, sort: filters.sort })}
       >
-        Filters wissen
+        Standaardfilters herstellen
       </button>
     </div>
   );

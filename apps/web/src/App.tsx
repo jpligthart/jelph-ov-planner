@@ -119,7 +119,14 @@ export function App() {
   }, [result, searched]);
 
   const visible = useMemo(() => applyFilters(pool, filters), [pool, filters]);
-  const badges = useMemo(() => computeBadges(visible), [visible]);
+  const badges = useMemo(
+    () =>
+      computeBadges(
+        visible,
+        searched ? { mode: searched.choice.mode, at: searched.at } : undefined,
+      ),
+    [visible, searched],
+  );
   const availableModes = useMemo(() => {
     const set = new Set<string>();
     for (const o of pool) for (const m of optionModes(o)) set.add(m);
@@ -481,9 +488,15 @@ export function App() {
                   <button
                     type="button"
                     className="secondary"
-                    onClick={() => setFilters({ ...DEFAULT_FILTERS, sort: filters.sort })}
+                    onClick={() =>
+                      setFilters({
+                        ...DEFAULT_FILTERS,
+                        maxWalk: null,
+                        sort: filters.sort,
+                      })
+                    }
                   >
-                    Filters wissen
+                    Alle filters uitzetten
                   </button>
                 </div>
               ) : result ? (

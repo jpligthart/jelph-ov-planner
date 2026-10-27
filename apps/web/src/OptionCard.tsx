@@ -12,7 +12,14 @@ import {
   walkMetersTotal,
   type Step,
 } from "./format";
-import { ChevronIcon, ModeIcon, WalkIcon } from "./icons";
+import { BoltIcon, ChevronIcon, ModeIcon, StarIcon, TransferIcon, WalkIcon } from "./icons";
+
+const BADGE_ICONS: Record<Badge, typeof BoltIcon> = {
+  recommended: StarIcon,
+  fastest: BoltIcon,
+  leastWalk: WalkIcon,
+  fewestTransfers: TransferIcon,
+};
 
 type Props = {
   option: PlanOption;
@@ -83,11 +90,15 @@ export function OptionCard({ option, fromLabel, toLabel, badges }: Props) {
       >
         {badges.length > 0 ? (
           <span className="badges">
-            {badges.map((b) => (
-              <span key={b} className={`badge badge--${b}`}>
-                {BADGE_LABELS[b]}
-              </span>
-            ))}
+            {badges.map((b) => {
+              const Icon = BADGE_ICONS[b];
+              return (
+                <span key={b} className={`badge badge--${b}`}>
+                  <Icon size={13} strokeWidth={2.5} />
+                  {BADGE_LABELS[b]}
+                </span>
+              );
+            })}
           </span>
         ) : null}
 
