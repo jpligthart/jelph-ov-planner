@@ -101,18 +101,21 @@ export function PlaceField({
   useEffect(() => setActive(-1), [value, open]);
 
   function locate() {
+    setOpen(false);
     setLocating(true);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setLocating(false);
-        onChange(
-          `${pos.coords.latitude.toFixed(5)},${pos.coords.longitude.toFixed(5)}`,
-        );
-        setOpen(false);
-      },
-      () => setLocating(false),
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
-    );
+    // Paint the spinner before the browser sits on the location lookup.
+    window.setTimeout(() => {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setLocating(false);
+          onChange(
+            `${pos.coords.latitude.toFixed(5)},${pos.coords.longitude.toFixed(5)}`,
+          );
+        },
+        () => setLocating(false),
+        { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 },
+      );
+    }, 0);
   }
 
   function choose(item: Item) {
@@ -161,6 +164,8 @@ export function PlaceField({
         onBlur={() => window.setTimeout(() => setOpen(false), 120)}
         onKeyDown={onKeyDown}
         placeholder={locating ? "Locatie bepalen…" : placeholder}
+        readOnly={locating}
+        aria-busy={locating}
         required
         autoComplete="off"
         spellCheck={false}
@@ -172,7 +177,12 @@ export function PlaceField({
         aria-activedescendant={active >= 0 ? `${listId}-${active}` : undefined}
         className={showsLocation ? "is-location" : undefined}
       />
-      {loading ? <span className="place-spinner" aria-label="Zoeken" /> : null}
+      {loading || locating ? (
+        <span
+          className="place-spinner"
+          aria-label={locating ? "Locatie bepalen" : "Zoeken"}
+        />
+      ) : null}
       {!empty && !loading ? (
         <button
           type="button"
