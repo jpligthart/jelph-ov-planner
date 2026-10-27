@@ -19,7 +19,8 @@ import {
   applyFilters,
   computeBadges,
   optionModes,
-  searchRadius,
+  SEARCH_RADIUS_METERS,
+  hiddenOnlyByWalk,
   type Filters,
   type SortKey,
 } from "./filters";
@@ -77,7 +78,6 @@ type Search = {
   from: string;
   to: string;
   choice: TimeChoice;
-  radius: number;
   /** Resolved search time; "now" is frozen at the moment of searching. */
   at: number;
 };
@@ -138,8 +138,18 @@ export function App() {
 
   const filterCount = activeFilterCount(filters);
   const hiddenCount = pool.length - visible.length;
-  const wantedRadius = searchRadius(filters.maxWalk);
-  const radiusTooSmall = searched !== null && wantedRadius > searched.radius;
+  const hiddenWalkOnly = useMemo(() => {
+    const shown = new Set(visible);
+    return hiddenOnlyByWalk(pool.filter((o) => !shown.has(o)), filters);
+  }, [pool, visible, filters]);
+
+  function showHidden() {
+    setFilters(
+      hiddenWalkOnly
+        ? { ...filters, maxWalk: null }
+        : { ...filters, maxWalk: null, maxTransfers: null, modes: [...FILTER_MODES] },
+    );
+  }
 
   async function runSearch(next: { from: string; to: string; choice: TimeChoice }) {
     const f = next.from.trim();
@@ -147,7 +157,6 @@ export function App() {
     if (!f || !t) return;
 
     const id = ++requestId.current;
-    const radius = searchRadius(filters.maxWalk);
     const at = choiceDate(next.choice);
     setLoading(true);
     setError(null);
@@ -157,13 +166,13 @@ export function App() {
         to: t,
         dateTime: at.toISOString(),
         searchForArrival: next.choice.mode === "arrive",
-        maxWalkMeters: radius,
+        maxWalkMeters: SEARCH_RADIUS_METERS,
         maxNearby: 3,
         topK: 20,
       });
       if (id !== requestId.current) return;
       setResult(data);
-      setSearched({ from: f, to: t, choice: next.choice, radius, at: at.getTime() });
+      setSearched({ from: f, to: t, choice: next.choice, at: at.getTime() });
       if (!isCoords(f) && !isCoords(t)) setRecent(pushRecent({ from: f, to: t }));
       if (isMobile) setCollapsed(true);
     } catch (err) {
@@ -213,23 +222,24 @@ export function App() {
   const places = recentPlaces(recent);
 
   const filterPills: Array<{ key: string; label: string; clear: Partial<Filters> }> = [];
-  const walkPill = WALK_CHOICES.find((c) => c.value === filters.maxWalk)?.pill;
-  if (filters.maxWalk !== null) {
+  // Pills show what the user changed; the cross returns to the default.
+  if (filters.maxWalk !== DEFAULT_FILTERS.maxWalk) {
+    const pill = WALK_CHOICES.find((c) => c.value === filters.maxWalk)?.pill;
     filterPills.push({
       key: "walk",
-      label: walkPill || `Max ${formatDistance(filters.maxWalk)} lopen`,
-      clear: { maxWalk: null },
+      label: pill || `Max ${formatDistance(filters.maxWalk ?? 0)} lopen`,
+      clear: { maxWalk: DEFAULT_FILTERS.maxWalk },
     });
   }
-  const transferPill = TRANSFER_CHOICES.find((c) => c.value === filters.maxTransfers)?.pill;
-  if (filters.maxTransfers !== null) {
+  if (filters.maxTransfers !== DEFAULT_FILTERS.maxTransfers) {
+    const pill = TRANSFER_CHOICES.find((c) => c.value === filters.maxTransfers)?.pill;
     filterPills.push({
       key: "transfers",
-      label: transferPill || `Max ${filters.maxTransfers} overstappen`,
-      clear: { maxTransfers: null },
+      label: pill || `Max ${filters.maxTransfers} overstappen`,
+      clear: { maxTransfers: DEFAULT_FILTERS.maxTransfers },
     });
   }
-  if (filters.modes.length !== FILTER_MODES.length) {
+  if (filters.modes.length !== DEFAULT_FILTERS.modes.length) {
     const off = FILTER_MODES.filter((m) => !filters.modes.includes(m));
     filterPills.push({
       key: "modes",
@@ -461,19 +471,6 @@ export function App() {
                 </div>
               ) : null}
 
-              {radiusTooSmall && !loading ? (
-                <div className="notice">
-                  Je loopfilter is ruimer dan de laatste zoekopdracht.
-                  <button
-                    type="button"
-                    className="link-button"
-                    onClick={() => void runSearch(searched)}
-                  >
-                    Opnieuw zoeken
-                  </button>
-                </div>
-              ) : null}
-
               {loading ? (
                 <ol className="option-list" aria-hidden="true">
                   {[0, 1, 2].map((i) => (
@@ -530,6 +527,18 @@ export function App() {
                       />
                     ))}
                   </ol>
+                  {hiddenCount > 0 ? (
+                    <p className="hidden-note">
+                      {hiddenWalkOnly
+                        ? hiddenCount === 1
+                          ? "1 reis met een langer stuk lopen is verborgen."
+                          : `${hiddenCount} reizen met een langer stuk lopen zijn verborgen.`
+                        : `${hiddenCount} ${hiddenCount === 1 ? "reis is" : "reizen zijn"} verborgen door je filters.`}{" "}
+                      <button type="button" className="link-button" onClick={showHidden}>
+                        Toch tonen
+                      </button>
+                    </p>
+                  ) : null}
                   <button
                     type="button"
                     className="shift-button"
@@ -537,12 +546,6 @@ export function App() {
                   >
                     Latere reizen
                   </button>
-                  {hiddenCount > 0 ? (
-                    <p className="hidden-note">
-                      {hiddenCount} {hiddenCount === 1 ? "reis" : "reizen"} verborgen door
-                      filters.
-                    </p>
-                  ) : null}
                 </>
               ) : null}
             </>

@@ -44,7 +44,7 @@ export const SORT_LABELS: Record<SortKey, string> = {
 export const WALK_CHOICES: Array<{ value: number | null; label: string; pill: string }> = [
   { value: 400, label: "± 5 min", pill: "Max ± 5 min lopen" },
   { value: 800, label: "± 10 min", pill: "Max ± 10 min lopen" },
-  { value: null, label: "Geen limiet", pill: "" },
+  { value: null, label: "Geen limiet", pill: "Lopen zonder limiet" },
 ];
 
 export const TRANSFER_CHOICES: Array<{ value: number | null; label: string; pill: string }> = [
@@ -55,11 +55,7 @@ export const TRANSFER_CHOICES: Array<{ value: number | null; label: string; pill
 ];
 
 export function isDefaultFilters(filters: Filters): boolean {
-  return (
-    filters.maxWalk === DEFAULT_FILTERS.maxWalk &&
-    filters.maxTransfers === DEFAULT_FILTERS.maxTransfers &&
-    filters.modes.length === DEFAULT_FILTERS.modes.length
-  );
+  return activeFilterCount(filters) === 0;
 }
 
 export function optionModes(option: PlanOption): Set<ModeKind> {
@@ -104,12 +100,19 @@ export function applyFilters(options: PlanOption[], filters: Filters): PlanOptio
     );
 }
 
+/** Filters the user changed; the defaults alone don't count. */
 export function activeFilterCount(filters: Filters): number {
   let count = 0;
-  if (filters.maxWalk !== null) count += 1;
-  if (filters.maxTransfers !== null) count += 1;
-  if (filters.modes.length !== FILTER_MODES.length) count += 1;
+  if (filters.maxWalk !== DEFAULT_FILTERS.maxWalk) count += 1;
+  if (filters.maxTransfers !== DEFAULT_FILTERS.maxTransfers) count += 1;
+  if (filters.modes.length !== DEFAULT_FILTERS.modes.length) count += 1;
   return count;
+}
+
+/** True when every hidden option is hidden by the walking limit alone. */
+export function hiddenOnlyByWalk(hidden: PlanOption[], filters: Filters): boolean {
+  const withoutWalkLimit = { ...filters, maxWalk: null };
+  return hidden.length > 0 && hidden.every((o) => passes(o, withoutWalkLimit));
 }
 
 export type Badge = "recommended" | "fastest" | "leastWalk" | "fewestTransfers";
@@ -178,8 +181,8 @@ export function computeBadges(
   return badges;
 }
 
-/** Walking radius to request from the API for a given filter value. */
-export function searchRadius(maxWalk: number | null): number {
-  if (maxWalk === null) return 2500;
-  return Math.min(2500, Math.max(1200, maxWalk));
-}
+/**
+ * Walking radius for finding nearby stops. Fixed, so changing the walk filter
+ * never needs a new search; the filter itself is applied client-side.
+ */
+export const SEARCH_RADIUS_METERS = 2500;
