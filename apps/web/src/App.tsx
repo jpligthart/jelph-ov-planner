@@ -578,6 +578,10 @@ export function App() {
         </a>
         {" "}
         (ODbL)
+        {" · "}
+        <a href="https://ko-fi.com/jelphme" target="_blank" rel="noreferrer">
+          Ko-fi
+        </a>
       </footer>
     </div>
   );

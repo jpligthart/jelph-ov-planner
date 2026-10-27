@@ -1165,103 +1165,174 @@ button {
   transform: rotate(180deg);
 }
 
-/* Steps (expanded) */
-.steps {
+/* Itinerary (expanded): stops are dots, moves are the line between them */
+.itinerary {
   list-style: none;
   margin: 0;
-  padding: 0.25rem 1rem 1rem;
+  padding: 0.85rem 1rem 1rem;
   border-top: 1px solid var(--line);
   animation: fade 0.2s ease;
 }
 
-.step {
+.it-row {
   display: grid;
-  grid-template-columns: 3.2rem 28px 1fr;
-  gap: 0 0.6rem;
+  grid-template-columns: 3.2rem 20px 1fr;
+  gap: 0 0.75rem;
+  align-items: center;
 }
 
-.step-time {
-  padding-top: 0.85rem;
+.it-time {
   font-weight: 700;
-  font-size: 0.9rem;
+  font-size: 0.92rem;
   font-variant-numeric: tabular-nums;
+  display: grid;
+  line-height: 1.25;
 }
 
-.step-rail {
+.it-time-sub {
+  font-weight: 500;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.it-rail {
   position: relative;
-  display: flex;
-  justify-content: center;
+  align-self: stretch;
+  display: grid;
+  place-items: center;
 }
 
-.step-rail::before {
+/* Continuous rail; each row type colours its own piece. */
+.it-rail::before {
   content: "";
   position: absolute;
   top: 0;
   bottom: 0;
+  left: 50%;
   width: 4px;
+  transform: translateX(-50%);
   border-radius: 4px;
+  background: var(--line);
+}
+
+.it-move .it-rail::before {
   background: var(--mode);
 }
 
-.step.mode-walk .step-rail::before {
-  width: 0;
-  border-left: 3px dotted var(--mode-walk);
-  background: none;
+.it-move.mode-walk .it-rail::before {
+  width: 3px;
+  background: repeating-linear-gradient(
+    to bottom,
+    var(--mode-walk) 0 3px,
+    transparent 3px 7px
+  );
 }
 
-.step:first-child .step-rail::before {
-  top: 0.8rem;
+.it-wait .it-rail::before {
+  width: 2px;
+  background: var(--line-strong);
 }
 
-.step--end .step-rail::before {
-  display: none;
+/* Stops: top half continues the line above, bottom half the line below. */
+.it-stop .it-rail::before,
+.it-stop .it-rail::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  width: 4px;
+  transform: translateX(-50%);
+  border-radius: 0;
 }
 
-.step-icon {
+.it-stop .it-rail::before {
+  top: 0;
+  bottom: 50%;
+  background: var(--above, transparent);
+}
+
+.it-stop .it-rail::after {
+  top: 50%;
+  bottom: 0;
+  background: var(--below, transparent);
+}
+
+.it-dot {
   position: relative;
-  margin-top: 0.7rem;
-  width: 26px;
-  height: 26px;
+  z-index: 1;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
-  display: grid;
-  place-items: center;
   background: var(--surface);
-  color: var(--mode);
-  border: 2px solid var(--mode);
+  border: 3px solid var(--ink-2);
 }
 
-.step-icon--end {
-  border-color: var(--primary);
-  background: var(--primary);
+.it-stop--start .it-dot,
+.it-stop--end .it-dot {
   width: 16px;
   height: 16px;
-  margin-top: 0.95rem;
+  border-color: var(--primary);
 }
 
-.step-body {
-  display: grid;
-  gap: 0.15rem;
-  padding: 0.8rem 0 0.6rem;
-  min-width: 0;
+.it-stop--end .it-dot {
+  background: var(--primary);
 }
 
-.step-place {
+.it-stop {
+  min-height: 2.6rem;
+}
+
+.it-name {
+  font-weight: 700;
+  padding: 0.35rem 0;
+}
+
+.it-note {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.55rem 0;
+  font-size: 0.88rem;
+  color: var(--ink-2);
+}
+
+.it-note svg {
+  flex: none;
+  color: var(--mode, var(--muted));
+}
+
+.it-note strong {
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.it-meta {
+  color: var(--muted);
+}
+
+.it-move {
+  min-height: 2.75rem;
+}
+
+.it-move.mode-walk .it-note {
+  color: var(--muted);
+}
+
+.it-wait .it-note {
+  padding: 0.2rem 0;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.it-wait.is-tight .it-note {
+  color: var(--warn);
   font-weight: 700;
 }
 
-.step-detail {
-  color: var(--ink-2);
-  font-size: 0.9rem;
+.it-wait.is-tight .it-note svg {
+  color: var(--warn);
 }
 
-.step-meta {
-  display: block;
-  color: var(--muted);
-  font-size: 0.82rem;
-  margin-top: 0.1rem;
-}
-
-.step.is-cancelled .step-detail {
+.it-move.is-cancelled .it-note > span:first-of-type {
   text-decoration: line-through;
 }
 

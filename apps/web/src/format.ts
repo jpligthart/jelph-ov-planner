@@ -241,3 +241,68 @@ export function isCoords(value: string): boolean {
 export function placeLabel(label: string): string {
   return isCoords(label) ? "Huidige locatie" : label;
 }
+
+/** Walks shorter than this are noise in the itinerary (same-station hops). */
+const TRIVIAL_WALK_METERS = 100;
+
+export type ItineraryItem =
+  | {
+      type: "stop";
+      name: string;
+      arrive?: Date;
+      depart?: Date;
+      role: "start" | "via" | "end";
+    }
+  | { type: "move"; step: Step }
+  | { type: "wait"; minutes: number; tight: boolean };
+
+function isTrivialWalk(step: Step): boolean {
+  if (step.kind !== "walk") return false;
+  return step.meters !== undefined
+    ? step.meters < TRIVIAL_WALK_METERS
+    : step.minutes <= 1;
+}
+
+const diffMinutes = (a?: Date, b?: Date) =>
+  a && b ? Math.round((b.getTime() - a.getTime()) / 60000) : 0;
+
+/**
+ * Turn steps into stops (where you are) and moves (how you get to the next
+ * stop), with explicit waiting time at transfers.
+ */
+export function buildItinerary(steps: Step[]): ItineraryItem[] {
+  const kept = steps.some((s) => s.kind !== "walk")
+    ? steps.filter((s) => !isTrivialWalk(s))
+    : steps;
+  if (kept.length === 0) return [];
+
+  const items: ItineraryItem[] = [
+    { type: "stop", name: kept[0].origin, depart: kept[0].start, role: "start" },
+  ];
+  let rodeVehicle = false;
+
+  kept.forEach((step, i) => {
+    items.push({ type: "move", step });
+    if (step.kind !== "walk") rodeVehicle = true;
+
+    const next = kept[i + 1];
+    if (!next) {
+      items.push({ type: "stop", name: step.destination, arrive: step.end, role: "end" });
+      return;
+    }
+
+    const wait = Math.max(0, diffMinutes(step.end, next.start));
+    items.push({
+      type: "stop",
+      name: step.destination,
+      arrive: step.end,
+      depart: next.start,
+      role: "via",
+    });
+    // Only a transfer onto a vehicle, after riding one, can be missed.
+    const tight = rodeVehicle && next.kind !== "walk" && wait <= 2;
+    if (wait > 0 || tight) items.push({ type: "wait", minutes: wait, tight });
+  });
+
+  return items;
+}

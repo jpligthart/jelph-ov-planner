@@ -2,6 +2,8 @@
 
 Smartere multimodale OV-routeplanner voor Nederland: fans out over nabije haltes/stations, rankt deur-tot-deur opties, en biedt CLI / MCP / web UI.
 
+Handig gevonden? [Ko-fi / tip jar](https://ko-fi.com/jelphme).
+
 ## Architectuur
 
 npm workspaces-monorepo. Alle slimme routing zit in **`@jelph/planner`**. De apps zijn dunne shells: zelfde core, andere interface.

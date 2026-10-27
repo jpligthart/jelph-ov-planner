@@ -2,6 +2,8 @@ import { useId, useState, type CSSProperties } from "react";
 import type { PlanOption } from "./api";
 import { BADGE_LABELS, type Badge } from "./filters";
 import {
+  buildItinerary,
+  type ItineraryItem,
   buildSteps,
   doorArrival,
   doorDeparture,
@@ -12,7 +14,7 @@ import {
   walkMetersTotal,
   type Step,
 } from "./format";
-import { BoltIcon, ChevronIcon, ModeIcon, StarIcon, TransferIcon, WalkIcon } from "./icons";
+import { BoltIcon, ChevronIcon, ClockIcon, ModeIcon, StarIcon, TransferIcon, WalkIcon } from "./icons";
 
 const BADGE_ICONS: Record<Badge, typeof BoltIcon> = {
   recommended: StarIcon,
@@ -65,6 +67,105 @@ function Timeline({ steps, start, end }: { steps: Step[]; start?: Date; end?: Da
         );
       })}
     </div>
+  );
+}
+
+function StopTime({ arrive, depart }: { arrive?: Date; depart?: Date }) {
+  const both = arrive && depart && formatClock(arrive) !== formatClock(depart);
+  if (both) {
+    return (
+      <span className="it-time">
+        <span className="it-time-sub" aria-label={`aankomst ${formatClock(arrive)}`}>
+          {formatClock(arrive)}
+        </span>
+        <span aria-label={`vertrek ${formatClock(depart)}`}>{formatClock(depart)}</span>
+      </span>
+    );
+  }
+  return <span className="it-time">{formatClock(depart ?? arrive)}</span>;
+}
+
+/** Rail paint for the piece of line belonging to an item. */
+function railPaint(item?: ItineraryItem): string {
+  if (!item || item.type === "stop") return "transparent";
+  if (item.type === "wait") return "var(--line-strong)";
+  if (item.step.kind === "walk") {
+    return "repeating-linear-gradient(to bottom, var(--mode-walk) 0 3px, transparent 3px 7px)";
+  }
+  return `var(--mode-${item.step.kind})`;
+}
+
+/** Stops are dots, moves are the line between them, waits sit at a stop. */
+function Itinerary({ id, steps }: { id: string; steps: Step[] }) {
+  const items = buildItinerary(steps);
+  return (
+    <ol className="itinerary" id={id}>
+      {items.map((item, i) => {
+        if (item.type === "stop") {
+          return (
+            <li
+              key={i}
+              className={`it-row it-stop it-stop--${item.role}`}
+              style={
+                {
+                  // The line runs through the dot in the colours on either side.
+                  "--above": railPaint(items[i - 1]),
+                  "--below": railPaint(items[i + 1]),
+                } as CSSProperties
+              }
+            >
+              <StopTime arrive={item.arrive} depart={item.depart} />
+              <span className="it-rail" aria-hidden="true">
+                <span className="it-dot" />
+              </span>
+              <span className="it-name">{item.name}</span>
+            </li>
+          );
+        }
+        if (item.type === "wait") {
+          return (
+            <li key={i} className={`it-row it-wait${item.tight ? " is-tight" : ""}`}>
+              <span className="it-time" />
+              <span className="it-rail" aria-hidden="true" />
+              <span className="it-note">
+                <ClockIcon size={14} />
+                {item.tight
+                  ? item.minutes > 0
+                    ? `Krappe overstap: ${item.minutes} min`
+                    : "Krappe overstap"
+                  : `${formatDuration(item.minutes)} overstaptijd`}
+              </span>
+            </li>
+          );
+        }
+        const s = item.step;
+        const walk = s.kind === "walk";
+        return (
+          <li
+            key={i}
+            className={`it-row it-move mode-${s.kind}${s.cancelled ? " is-cancelled" : ""}`}
+          >
+            <span className="it-time" />
+            <span className="it-rail" aria-hidden="true" />
+            <span className="it-note">
+              <ModeIcon kind={s.kind} size={14} />
+              {walk ? (
+                <span>
+                  {formatDuration(s.minutes)} lopen
+                  {s.meters ? ` · ${formatDistance(s.meters)}` : ""}
+                </span>
+              ) : (
+                <span>
+                  <strong>{s.label}</strong> → {s.destination}
+                  <span className="it-meta"> · {formatDuration(s.minutes)}</span>
+                </span>
+              )}
+              {s.cancelled ? <span className="fact-alert">Vervalt</span> : null}
+            </span>
+          </li>
+        );
+      })}
+    </ol>
   );
 }
 
@@ -144,41 +245,7 @@ export function OptionCard({ option, fromLabel, toLabel, badges }: Props) {
         </span>
       </button>
 
-      {open ? (
-        <ol className="steps" id={detailsId}>
-          {steps.map((s, i) => (
-            <li key={i} className={`step mode-${s.kind}${s.cancelled ? " is-cancelled" : ""}`}>
-              <span className="step-time">{formatClock(s.start)}</span>
-              <span className="step-rail" aria-hidden="true">
-                <span className="step-icon">
-                  <ModeIcon kind={s.kind} size={14} />
-                </span>
-              </span>
-              <span className="step-body">
-                <span className="step-place">{s.origin}</span>
-                <span className="step-detail">
-                  {s.label}
-                  {s.kind !== "walk" ? ` → ${s.destination}` : ""}
-                  <span className="step-meta">
-                    {formatDuration(s.minutes)}
-                    {s.meters ? ` · ${formatDistance(s.meters)}` : ""}
-                  </span>
-                  {s.cancelled ? <span className="fact-alert">Vervalt</span> : null}
-                </span>
-              </span>
-            </li>
-          ))}
-          <li className="step step--end">
-            <span className="step-time">{formatClock(arrive)}</span>
-            <span className="step-rail" aria-hidden="true">
-              <span className="step-icon step-icon--end" />
-            </span>
-            <span className="step-body">
-              <span className="step-place">{toLabel}</span>
-            </span>
-          </li>
-        </ol>
-      ) : null}
+      {open ? <Itinerary id={detailsId} steps={steps} /> : null}
     </li>
   );
 }
