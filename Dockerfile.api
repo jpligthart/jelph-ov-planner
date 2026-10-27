@@ -1,0 +1,29 @@
+# syntax=docker/dockerfile:1
+
+FROM node:24-bookworm-slim AS deps
+WORKDIR /app
+COPY package.json package-lock.json ./
+COPY packages/planner/package.json packages/planner/
+COPY apps/api/package.json apps/api/
+COPY apps/cli/package.json apps/cli/
+COPY apps/mcp/package.json apps/mcp/
+COPY apps/web/package.json apps/web/
+RUN npm ci --workspace=@nsplanner/planner --workspace=@nsplanner/api --include-workspace-root
+
+FROM deps AS build
+COPY packages/planner packages/planner
+COPY apps/api apps/api
+RUN npm run build -w @nsplanner/planner && npm run build -w @nsplanner/api \
+  && npm prune --omit=dev
+
+FROM node:24-bookworm-slim AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+ENV PORT=3000
+ENV HOST=0.0.0.0
+COPY --from=build /app/package.json ./
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/packages/planner ./packages/planner
+COPY --from=build /app/apps/api ./apps/api
+EXPOSE 3000
+CMD ["npm", "run", "start", "-w", "@nsplanner/api"]

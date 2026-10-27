@@ -1,0 +1,22 @@
+{
+  "name": "nsplanner",
+  "private": true,
+  "version": "0.2.0",
+  "description": "Smarter NS route planner — monorepo (planner, API, web, CLI, MCP)",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "npm run build -w @nsplanner/planner && npm run build -w @nsplanner/api && npm run build -w @nsplanner/web && npm run build -w @nsplanner/cli && npm run build -w @nsplanner/mcp",
+    "build:planner": "npm run build -w @nsplanner/planner",
+    "dev:api": "npm run dev -w @nsplanner/api",
+    "dev:web": "npm run dev -w @nsplanner/web",
+    "cli": "npm run start -w @nsplanner/cli --",
+    "mcp": "npm run start -w @nsplanner/mcp",
+    "typecheck": "npm run typecheck -w @nsplanner/planner && npm run typecheck -w @nsplanner/api && npm run typecheck -w @nsplanner/cli && npm run typecheck -w @nsplanner/mcp && npm run typecheck -w @nsplanner/web"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

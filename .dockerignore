@@ -1,0 +1,10 @@
+**/node_modules
+**/dist
+.git
+.env
+*.log
+.cursor
+agent-tools
+apps/web/dist
+**/*.md
+!README.md
