@@ -104,7 +104,7 @@ export function FilterPanel({ filters, onChange, availableModes }: Props) {
           onSelect={(maxWalk) => set({ maxWalk })}
         />
         <p className="filter-hint">
-          Totale looptijd, ook bij overstappen. Weinig is ± 5 minuten.
+          Geldt per keer dat je loopt.
         </p>
       </section>
     </div>

@@ -3,6 +3,7 @@ import {
   doorArrival,
   doorDeparture,
   modeKind,
+  longestWalkMeters,
   walkMetersTotal,
   type ModeKind,
 } from "./format";
@@ -39,9 +40,9 @@ export const SORT_LABELS: Record<SortKey, string> = {
   walk: "Minst lopen",
 };
 
-// Walking is felt as time, not meters (80 m per minute).
+// Limit per stretch on foot, felt as time rather than meters (80 m per minute).
 export const WALK_CHOICES: Array<{ value: number | null; label: string; pill: string }> = [
-  { value: 400, label: "Weinig", pill: "Weinig lopen" },
+  { value: 400, label: "± 5 min", pill: "Max ± 5 min lopen" },
   { value: 800, label: "± 10 min", pill: "Max ± 10 min lopen" },
   { value: null, label: "Geen limiet", pill: "" },
 ];
@@ -66,7 +67,7 @@ export function optionModes(option: PlanOption): Set<ModeKind> {
 }
 
 function passes(option: PlanOption, filters: Filters): boolean {
-  if (filters.maxWalk !== null && walkMetersTotal(option) > filters.maxWalk) {
+  if (filters.maxWalk !== null && longestWalkMeters(option) > filters.maxWalk) {
     return false;
   }
   if (filters.maxTransfers !== null && option.transfers > filters.maxTransfers) {
@@ -133,7 +134,11 @@ function recommendScore(option: PlanOption, context: SearchContext): number {
     context.mode === "arrive"
       ? (context.at - (doorArrival(option)?.getTime() ?? context.at)) / MIN
       : ((doorDeparture(option)?.getTime() ?? context.at) - context.at) / MIN;
-  const extraWalk = Math.max(0, walkMetersTotal(option) - 600) / 80;
+  // Walking in minutes beyond a comfortable amount; a long single stretch
+  // weighs extra on top of the total.
+  const extraWalk =
+    Math.max(0, walkMetersTotal(option) - 600) / 80 +
+    Math.max(0, longestWalkMeters(option) - 400) / 80;
   return (
     option.totalDoorToDoorMinutes +
     0.5 * Math.max(0, wait) +

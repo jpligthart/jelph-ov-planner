@@ -138,6 +138,20 @@ export function walkMetersTotal(option: PlanOption): number {
   return Math.round(meters);
 }
 
+/**
+ * Longest single stretch on foot. One long walk is what people feel, more
+ * than several short ones at stations added up.
+ */
+export function longestWalkMeters(option: PlanOption): number {
+  let longest = Math.max(option.walkMetersOrigin, option.walkMetersDestination);
+  for (const leg of option.legs) {
+    if (modeKind(leg.modality) === "walk") {
+      longest = Math.max(longest, walkLegMeters(leg));
+    }
+  }
+  return Math.round(longest);
+}
+
 export function walkMinutesTotal(option: PlanOption): number {
   let minutes = option.walkMinutesOrigin + option.walkMinutesDestination;
   for (const leg of option.legs) {
