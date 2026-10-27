@@ -89,6 +89,6 @@ export function dayLabel(date: string, clock = new Date()): string {
 
 export function describeChoice(choice: TimeChoice): string {
   if (choice.now) return "Nu vertrekken";
-  const verb = choice.mode === "arrive" ? "Aankomst" : "Vertrek";
+  const verb = choice.mode === "arrive" ? "Aankomst uiterlijk" : "Vertrek";
   return `${verb} ${dayLabel(choice.date).toLowerCase()} ${choice.time}`;
 }

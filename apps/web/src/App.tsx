@@ -6,7 +6,7 @@ import {
   useState,
   type FormEvent,
 } from "react";
-import { planTrip, type PlanResponse } from "./api";
+import { planTrip, type PlanOption, type PlanResponse } from "./api";
 import { FilterPanel } from "./FilterPanel";
 import {
   DEFAULT_FILTERS,
@@ -53,7 +53,6 @@ import {
   choiceDate,
   defaultChoice,
   describeChoice,
-  setChoiceDate,
   type TimeChoice,
 } from "./time";
 
@@ -73,10 +72,31 @@ function useMediaQuery(query: string): boolean {
 type Search = {
   from: string;
   to: string;
+  /** The time the user set; never changed by loading more trips. */
   choice: TimeChoice;
   /** Resolved search time; "now" is frozen at the moment of searching. */
   at: number;
+  /** Earliest departure shown (departure searches); lowered by "Eerdere reizen". */
+  minDepart: number;
+  /** Latest arrival shown (arrival searches); raised by "Latere reizen". */
+  maxArrive: number;
 };
+
+/** Same trip found by different searches. */
+function tripKey(o: PlanOption): string {
+  return [o.departure, o.arrival, o.legs.map((l) => l.modality).join(",")].join("|");
+}
+
+function edgeTime(
+  options: PlanOption[],
+  pick: (o: PlanOption) => Date | undefined,
+  agg: (...n: number[]) => number,
+): number | undefined {
+  const times = options
+    .map((o) => pick(o)?.getTime())
+    .filter((t): t is number => t !== undefined && Number.isFinite(t));
+  return times.length ? agg(...times) : undefined;
+}
 
 export function App() {
   const isMobile = useMediaQuery(MOBILE_QUERY);
@@ -94,6 +114,7 @@ export function App() {
   const [result, setResult] = useState<PlanResponse | null>(null);
   const [searched, setSearched] = useState<Search | null>(null);
   const [collapsed, setCollapsed] = useState(false);
+  const [loadingMore, setLoadingMore] = useState<-1 | 1 | null>(null);
   const requestId = useRef(0);
 
   useEffect(() => saveFilters(filters), [filters]);
@@ -108,12 +129,19 @@ export function App() {
   const markTouched = useCallback(() => setTimeTouched(true), []);
 
   // Departures before the requested time can't be caught; drop them.
+  // Departure searches: nothing that leaves before the chosen time.
+  // Arrival searches: nothing that arrives after it. "Eerdere/Latere reizen"
+  // widen these bounds on purpose.
   const pool = useMemo(() => {
-    if (!result) return [];
-    if (!searched || searched.choice.mode === "arrive") return result.options;
-    const earliest = searched.at - 60000;
+    if (!result || !searched) return result?.options ?? [];
+    const slack = 60000;
+    if (searched.choice.mode === "arrive") {
+      return result.options.filter(
+        (o) => (doorArrival(o)?.getTime() ?? 0) <= searched.maxArrive + slack,
+      );
+    }
     return result.options.filter(
-      (o) => (doorDeparture(o)?.getTime() ?? earliest) >= earliest,
+      (o) => (doorDeparture(o)?.getTime() ?? Infinity) >= searched.minDepart - slack,
     );
   }, [result, searched]);
 
@@ -168,7 +196,14 @@ export function App() {
       });
       if (id !== requestId.current) return;
       setResult(data);
-      setSearched({ from: f, to: t, choice: next.choice, at: at.getTime() });
+      setSearched({
+        from: f,
+        to: t,
+        choice: next.choice,
+        at: at.getTime(),
+        minDepart: at.getTime(),
+        maxArrive: at.getTime(),
+      });
       if (!isCoords(f) && !isCoords(t)) setRecent(pushRecent({ from: f, to: t }));
       if (isMobile) setCollapsed(true);
     } catch (err) {
@@ -193,24 +228,55 @@ export function App() {
   }
 
   /** Earlier / later: move the search window past the current results. */
-  function shiftSearch(direction: -1 | 1) {
-    if (!result || !searched) return;
-    const arrive = searched.choice.mode === "arrive";
-    const times = result.options
-      .map((o) => (arrive ? doorArrival(o) : doorDeparture(o))?.getTime())
-      .filter((t): t is number => t !== undefined && Number.isFinite(t));
-    const base = choiceDate(searched.choice).getTime();
-    const edge = times.length
-      ? direction > 0
-        ? Math.max(...times)
-        : Math.min(...times)
-      : base;
-    const offsetMin =
-      direction > 0 ? (arrive ? 60 : 1) : arrive ? -1 : -60;
-    const choice = setChoiceDate(searched.choice, new Date(edge + offsetMin * 60000));
-    setTime(choice);
-    setTimeTouched(true);
-    void runSearch({ from: searched.from, to: searched.to, choice });
+  /**
+   * "Eerdere/Latere reizen": add trips just before or after the list, like
+   * paging. The time the user set stays as it is.
+   */
+  async function loadMore(direction: -1 | 1) {
+    if (!result || !searched || loadingMore) return;
+    const id = requestId.current;
+    const base = pool.length ? pool : result.options;
+    // Later: depart just after the last departure. Earlier: arrive just
+    // before the first arrival.
+    const edge =
+      direction > 0
+        ? edgeTime(base, doorDeparture, Math.max)
+        : edgeTime(base, doorArrival, Math.min);
+    const when = new Date((edge ?? searched.at) + direction * 60000);
+
+    setLoadingMore(direction);
+    setError(null);
+    try {
+      const data = await planTrip({
+        from: searched.from,
+        to: searched.to,
+        dateTime: when.toISOString(),
+        searchForArrival: direction < 0,
+        maxWalkMeters: SEARCH_RADIUS_METERS,
+        maxNearby: 3,
+        topK: 20,
+      });
+      if (id !== requestId.current) return; // a new search took over
+      const known = new Set(result.options.map(tripKey));
+      const added = data.options.filter((o) => !known.has(tripKey(o)));
+      setResult({ ...result, options: [...result.options, ...added] });
+      setSearched({
+        ...searched,
+        minDepart:
+          direction < 0
+            ? Math.min(searched.minDepart, edgeTime(added, doorDeparture, Math.min) ?? Infinity)
+            : searched.minDepart,
+        maxArrive:
+          direction > 0
+            ? Math.max(searched.maxArrive, edgeTime(added, doorArrival, Math.max) ?? -Infinity)
+            : searched.maxArrive,
+      });
+    } catch (err) {
+      if (id !== requestId.current) return;
+      setError(friendlyError(err instanceof Error ? err.message : String(err)));
+    } finally {
+      if (id === requestId.current) setLoadingMore(null);
+    }
   }
 
   const fromTitle = result ? placeLabel(result.from.label) : "";
@@ -466,9 +532,10 @@ export function App() {
                   <button
                     type="button"
                     className="shift-button"
-                    onClick={() => shiftSearch(-1)}
+                    onClick={() => void loadMore(-1)}
+                    disabled={loadingMore !== null}
                   >
-                    Eerdere reizen
+                    {loadingMore === -1 ? "Laden…" : "Eerdere reizen"}
                   </button>
                   <ol className="option-list">
                     {visible.map((option) => (
@@ -496,9 +563,10 @@ export function App() {
                   <button
                     type="button"
                     className="shift-button"
-                    onClick={() => shiftSearch(1)}
+                    onClick={() => void loadMore(1)}
+                    disabled={loadingMore !== null}
                   >
-                    Latere reizen
+                    {loadingMore === 1 ? "Laden…" : "Latere reizen"}
                   </button>
                 </>
               ) : null}
