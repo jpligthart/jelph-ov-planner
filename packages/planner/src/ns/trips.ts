@@ -16,6 +16,8 @@ type RawLeg = {
   };
   travelType?: string;
   mode?: { name?: string };
+  distance?: number;
+  distanceInMeters?: number;
 };
 
 type RawTrip = {
@@ -90,6 +92,7 @@ function mapLeg(leg: RawLeg): TripLegSummary {
       leg.travelType ??
       leg.product?.type,
     cancelled: leg.cancelled === true,
+    distanceMeters: leg.distanceInMeters ?? leg.distance,
   };
 }
 

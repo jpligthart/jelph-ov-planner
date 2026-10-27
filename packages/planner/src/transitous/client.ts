@@ -81,6 +81,10 @@ function mapLeg(leg: RawLeg): TripLegSummary {
       leg.to?.scheduledArrival,
     modality: modalityLabel(leg),
     cancelled: false,
+    distanceMeters:
+      typeof leg.distance === "number" && Number.isFinite(leg.distance)
+        ? Math.round(leg.distance)
+        : undefined,
   };
 }
 

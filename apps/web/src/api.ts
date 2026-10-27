@@ -9,6 +9,16 @@ export type PlaceHit = {
   city?: string;
 };
 
+export type PlanLeg = {
+  origin: string;
+  destination: string;
+  plannedDeparture?: string;
+  plannedArrival?: string;
+  modality?: string;
+  cancelled?: boolean;
+  distanceMeters?: number;
+};
+
 export type PlanOption = {
   id: string;
   summary: string;
@@ -24,14 +34,7 @@ export type PlanOption = {
   fromStation?: { code: string; name: string; distanceMeters?: number };
   toStation?: { code: string; name: string; distanceMeters?: number };
   notes: string[];
-  legs: Array<{
-    origin: string;
-    destination: string;
-    plannedDeparture?: string;
-    plannedArrival?: string;
-    modality?: string;
-    cancelled?: boolean;
-  }>;
+  legs: PlanLeg[];
 };
 
 export type PlanResponse = {

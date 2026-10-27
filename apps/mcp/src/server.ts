@@ -1,5 +1,13 @@
 #!/usr/bin/env node
-import "dotenv/config";
+import { fileURLToPath } from "node:url";
+import { config as loadEnv } from "dotenv";
+
+// npm workspaces run from apps/<name>, so also look for the repo-root .env.
+// Existing env vars (e.g. Docker env_file) always win.
+loadEnv({
+  path: [".env", fileURLToPath(new URL("../../../.env", import.meta.url))],
+  quiet: true,
+});
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import {

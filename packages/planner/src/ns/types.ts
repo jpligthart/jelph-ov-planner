@@ -15,6 +15,8 @@ export type TripLegSummary = {
   plannedArrival?: string;
   modality?: string;
   cancelled?: boolean;
+  /** Leg distance in meters when the source provides it (walk legs). */
+  distanceMeters?: number;
 };
 
 export type NsTrip = {
