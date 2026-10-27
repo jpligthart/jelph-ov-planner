@@ -56,7 +56,7 @@ export function App() {
   return (
     <div className="page">
       <header className="hero">
-        <p className="brand">NSPlanner</p>
+        <p className="brand">Jelph OV Planner</p>
         <h1>Plan je reis</h1>
         <p className="lede">
           Van deur tot deur — met slimme alternatieven als iets verder lopen

@@ -9,7 +9,7 @@ import {
   searchPlaces,
   searchStations,
   toPublicPlanResult,
-} from "@nsplanner/planner";
+} from "@jelph/planner";
 import { z } from "zod";
 
 const PlanBodySchema = z.object({

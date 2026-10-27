@@ -6,10 +6,10 @@ import {
   planRoute,
   searchStations,
   toPublicPlanResult,
-} from "@nsplanner/planner";
+} from "@jelph/planner";
 
 function usage(): never {
-  console.log(`NS Smart Planner CLI
+  console.log(`Jelph OV Planner CLI
 
 Usage:
   npm run cli -- plan --from <place> --to <place> [options]

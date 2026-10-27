@@ -1,10 +1,10 @@
 {
-  "name": "@nsplanner/mcp",
+  "name": "@jelph/mcp",
   "version": "0.2.0",
   "private": true,
   "type": "module",
   "bin": {
-    "ns-planner-mcp": "./dist/server.js"
+    "jelph-ov-planner-mcp": "./dist/server.js"
   },
   "scripts": {
     "start": "tsx src/server.ts",
@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.2",
-    "@nsplanner/planner": "*",
+    "@jelph/planner": "*",
     "dotenv": "^18.0.9",
     "zod": "^4.6.7"
   },

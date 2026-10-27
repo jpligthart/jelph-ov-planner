@@ -1,5 +1,5 @@
 {
-  "name": "@nsplanner/api",
+  "name": "@jelph/api",
   "version": "0.2.0",
   "private": true,
   "type": "module",
@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@fastify/cors": "^11.3.1",
-    "@nsplanner/planner": "*",
+    "@jelph/planner": "*",
     "dotenv": "^18.0.9",
     "fastify": "^5.12.7",
     "zod": "^4.6.7"

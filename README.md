@@ -1,15 +1,15 @@
-# NSPlanner
+# Jelph OV Planner
 
-Smarter Dutch Railways route planner: fans out over nearby stations within walking distance, ranks **door-to-door** options, and exposes CLI / MCP / web UI.
+Smartere multimodale OV-routeplanner voor Nederland: fans out over nabije haltes/stations, rankt deur-tot-deur opties, en biedt CLI / MCP / web UI.
 
 ## Monorepo
 
 ```
-packages/planner   # NS client + smart planner core
-apps/api           # Fastify REST API (holds NS_API_KEY)
+packages/planner   # NS + Transitous + smart planner core
+apps/api           # Fastify REST API (houdt NS_API_KEY)
 apps/web           # Vite + React UI
 apps/cli           # CLI
-apps/mcp           # MCP server for Cursor
+apps/mcp           # MCP server voor Cursor
 ```
 
 ## Setup
@@ -51,7 +51,7 @@ npm run mcp
 ```json
 {
   "mcpServers": {
-    "ns-smart-planner": {
+    "jelph-ov-planner": {
       "command": "npx",
       "args": ["tsx", "apps/mcp/src/server.ts"],
       "cwd": "c:\\Users\\jplig\\source\\repos\\NSPlanner",
@@ -72,7 +72,7 @@ docker compose up --build -d
 App: http://localhost:8080  
 API health via nginx: http://localhost:8080/health
 
-`NS_API_KEY` comes from `.env` into the `api` service only.
+`NS_API_KEY` komt uit `.env` alleen in de `api`-service.
 
 ## API
 
@@ -80,18 +80,18 @@ API health via nginx: http://localhost:8080/health
 |--------|------|--------|
 | GET | `/health` | Liveness |
 | GET | `/api/me` | Auth stub (`user: null`) |
-| GET | `/api/places?q=` | Address / stop / station autocomplete (Places API) |
+| GET | `/api/places?q=` | Adres / halte / station autocomplete (NS Places) |
 | GET | `/api/stations?q=` | Station search |
-| POST | `/api/plan` | Body: `{ from, to, dateTime?, searchForArrival?, maxWalkMeters?, maxNearby?, topK? }` — `from`/`to` may be address, stop, station or `lat,lng` |
+| POST | `/api/plan` | Body: `{ from, to, dateTime?, searchForArrival?, maxWalkMeters?, maxNearby?, topK? }` — `from`/`to` mag adres, halte, station of `lat,lng` zijn |
 
-Planning resolves addresses via NS Places, then merges:
+Planning resolved adressen via NS Places, daarna:
 
-1. **NS** door-to-door if your key allows it (often blocked on public NsApp)
-2. **NS** station fan-out + walk estimates
-3. **[Transitous](https://transitous.org/)** MOTIS multimodal (bus/tram/metro/train) — public second source
+1. **NS** deur-tot-deur als je key dat toelaat (vaak geblokkeerd op publieke NsApp)
+2. **NS** station fan-out + loopafstand
+3. **[Transitous](https://transitous.org/)** MOTIS multimodaal (bus/tram/metro/trein)
 
-NsApp keys typically return `API_KEY_NOT_ALLOWED_TO_PLAN_DOOR_TO_DOOR`; Transitous covers that gap for non-commercial / FOSS fair-use. Attribution: [Transitous sources](https://transitous.org/sources/) and [OpenStreetMap](https://www.openstreetmap.org/copyright).
+NsApp-keys geven typisch `API_KEY_NOT_ALLOWED_TO_PLAN_DOOR_TO_DOOR`; Transitous vangt dat op voor non-commercieel / FOSS fair-use. Attributie: [Transitous sources](https://transitous.org/sources/) en [OpenStreetMap](https://www.openstreetmap.org/copyright).
 
-Toggle with `TRANSITOUS_ENABLED=false` if needed.
+Uitzetten met `TRANSITOUS_ENABLED=false` indien nodig.
 
-Login can later wrap these `/api/*` routes without touching the planner package.
+Login kan later om `/api/*` heen zonder de planner-package aan te passen.

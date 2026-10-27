@@ -67,7 +67,7 @@ export class NsClient {
       headers: {
         Accept: "application/json",
         "Ocp-Apim-Subscription-Key": this.apiKey,
-        "x-caller-id": "ns-smart-planner",
+        "x-caller-id": "jelph-ov-planner",
       },
     });
 

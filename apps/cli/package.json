@@ -1,10 +1,10 @@
 {
-  "name": "@nsplanner/cli",
+  "name": "@jelph/cli",
   "version": "0.2.0",
   "private": true,
   "type": "module",
   "bin": {
-    "ns-planner": "./dist/cli.js"
+    "jelph-ov-planner": "./dist/cli.js"
   },
   "scripts": {
     "start": "tsx src/cli.ts",
@@ -12,7 +12,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@nsplanner/planner": "*",
+    "@jelph/planner": "*",
     "dotenv": "^18.0.9"
   },
   "devDependencies": {

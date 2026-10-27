@@ -13,7 +13,7 @@ import {
   searchPlaces,
   searchStations,
   toPublicPlanResult,
-} from "@nsplanner/planner";
+} from "@jelph/planner";
 import { z } from "zod";
 
 const PlanRouteSchema = z.object({
@@ -68,7 +68,7 @@ const SearchPlacesSchema = z.object({
 });
 
 const server = new Server(
-  { name: "ns-smart-planner", version: "0.3.0" },
+  { name: "jelph-ov-planner", version: "0.3.0" },
   { capabilities: { tools: {} } },
 );
 
