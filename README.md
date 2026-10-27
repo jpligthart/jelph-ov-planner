@@ -2,15 +2,80 @@
 
 Smartere multimodale OV-routeplanner voor Nederland: fans out over nabije haltes/stations, rankt deur-tot-deur opties, en biedt CLI / MCP / web UI.
 
-## Monorepo
+## Architectuur
+
+npm workspaces-monorepo. Alle slimme routing zit in **`@jelph/planner`**. De apps zijn dunne shells: zelfde core, andere interface.
 
 ```
-packages/planner   # NS + Transitous + smart planner core
-apps/api           # Fastify REST API (houdt NS_API_KEY)
-apps/web           # Vite + React UI
-apps/cli           # CLI
-apps/mcp           # MCP server voor Cursor
+                    ┌─────────────┐  ┌─────────────┐  ┌─────────────┐
+                    │  apps/web   │  │  apps/cli   │  │  apps/mcp   │
+                    │ Vite/React  │  │  terminal   │  │   Cursor    │
+                    └──────┬──────┘  └──────┬──────┘  └──────┬──────┘
+                           │ HTTP           │ import         │ import
+                           ▼                │                │
+                    ┌─────────────┐         │                │
+                    │  apps/api   │◄────────┴────────────────┘
+                    │   Fastify   │   (cli/mcp praten ook
+                    └──────┬──────┘    direct met planner)
+                           │
+                           ▼
+                 ┌─────────────────────┐
+                 │  packages/planner   │  ← enige business-logica
+                 │  (@jelph/planner)   │
+                 └──────────┬──────────┘
+              ┌─────────────┼─────────────┐
+              ▼             ▼             ▼
+         NS Places     NS Trips     Transitous MOTIS
+         / Stations    (fan-out)    (bus/tram/metro/trein)
 ```
+
+| Laag | Map | Rol |
+|------|-----|-----|
+| Core | `packages/planner` | Places, hubs, fan-out, ranking, NS + Transitous clients |
+| API | `apps/api` | REST, validatie (zod), `NS_API_KEY`, strip debug voor UI |
+| Web | `apps/web` | NL UX; praat alleen met `/api/*` (Vite proxy → `:3000`) |
+| CLI | `apps/cli` | Zelfde `planRoute` vanuit de terminal |
+| MCP | `apps/mcp` | Tools voor Cursor (`plan`, stations, …) |
+| Deploy | `docker-compose.yml`, `Dockerfile.*`, `deploy/` | API + nginx-web op `:8080` |
+
+### Planner-package (`packages/planner/src`)
+
+```
+ns/           # NS API-wrappers
+  client.ts     HTTP + subscription key
+  places.ts     adres / halte / station zoeken & resolven
+  stations.ts   stations zoeken / dichtstbij
+  trips.ts      reistrajecten tussen stations
+  types.ts      gedeelde NS-types
+
+transitous/
+  client.ts     MOTIS /api/v5/plan (multimodaal)
+
+planner/      # orchestratie
+  plan.ts       planRoute + toPublicPlanResult
+  hubs.ts       nabije OV-hubs (halte/station)
+  nearby.ts     nabije stations (oude pad)
+  rank.ts       dedupe + score / top-K
+  geo.ts        haversine, looptijd
+```
+
+Publieke exports: `packages/planner/src/index.ts` (`planRoute`, `searchPlaces`, clients, …).
+
+### Plan-flow (`planRoute`)
+
+1. **Resolve** `from` / `to` (coords, Places-query, of station).
+2. **NS deur-tot-deur** — als de key dat mag (vaak niet op NsApp).
+3. **NS fan-out** — nabije hubs aan beide kanten, combinaties van trips + loopminuten.
+4. **Transitous** — multimodale itineraries (bus/tram/metro/trein).
+5. **Dedupe + rank** → top-K opties.
+
+Intern: `PlanResult` (incl. `warnings` / debug). Naar buiten via API: `toPublicPlanResult` — UI krijgt nette opties; tech-details blijven in API-logs.
+
+### Secrets & grenzen
+
+- `NS_API_KEY` alleen in API / CLI / MCP-env — **niet** in de browser.
+- Web → API → planner; CLI/MCP → planner rechtstreeks.
+- Auth is een stub (`GET /api/me`); later om de API heen, niet in de planner.
 
 ## Setup
 
