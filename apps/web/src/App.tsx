@@ -557,11 +557,14 @@ export function App() {
         Reisdata o.a. via{" "}
         <a href="https://transitous.org/sources/" target="_blank" rel="noreferrer">
           Transitous
-        </a>{" "}
-        /{" "}
-        <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">
-          OpenStreetMap
         </a>
+        {" · "}
+        ©{" "}
+        <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">
+          OpenStreetMap contributors
+        </a>
+        {" "}
+        (ODbL)
       </footer>
     </div>
   );

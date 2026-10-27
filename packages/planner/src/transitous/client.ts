@@ -1,7 +1,7 @@
 import type { NsTrip, TripLegSummary } from "../ns/types.js";
 
 const DEFAULT_BASE = "https://api.transitous.org";
-const USER_AGENT = "JelphOVPlanner/0.3 (+local-dev; https://jelph.nl)";
+const USER_AGENT = "JelphOVPlanner/0.3.0 (+https://jelph.nl)";
 
 export type TransitousPlanQuery = {
   fromLat: number;

@@ -26,6 +26,9 @@ Usage:
 Place can be a station name/code (e.g. "Utrecht Centraal", ASD)
 or coordinates as "lat,lng" (e.g. "52.0907,5.1214").
 
+Data: Transitous https://transitous.org/sources/
+      © OpenStreetMap contributors https://www.openstreetmap.org/copyright
+
 Options for plan:
   --from <place>          Origin (required)
   --to <place>            Destination (required)
@@ -122,6 +125,10 @@ async function cmdPlan(args: string[]): Promise<void> {
     }
     console.log("");
   }
+
+  console.log(
+    "Data: Transitous https://transitous.org/sources/ · © OpenStreetMap contributors (ODbL)",
+  );
 
   // Technical details for CLI operators only.
   console.error(

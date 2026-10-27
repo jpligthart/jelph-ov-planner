@@ -1,8 +1,10 @@
 {
   "name": "jelph-ov-planner",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.3.0",
+  "license": "MIT",
   "description": "Jelph OV Planner — smarter multimodal route planning for the Netherlands",
+
   "workspaces": [
     "packages/*",
     "apps/*"

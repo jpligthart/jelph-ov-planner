@@ -85,7 +85,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     {
       name: "plan_route",
       description:
-        "Smart door-to-door planner (address/stop/station). Uses NS multimodal trips (bus/tram/metro/train) and fans out over nearby hubs when a longer walk may win.",
+        "Smart door-to-door planner (address/stop/station). Uses NS multimodal trips (bus/tram/metro/train) and Transitous MOTIS; fans out over nearby hubs when a longer walk may win. Attribution: https://transitous.org/sources/ · © OpenStreetMap contributors (ODbL) https://www.openstreetmap.org/copyright",
       inputSchema: {
         type: "object",
         properties: {
@@ -182,6 +182,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           {
             type: "text",
             text: JSON.stringify(toPublicPlanResult(result), null, 2),
+          },
+          {
+            type: "text",
+            text: "Attribution: Transitous https://transitous.org/sources/ · © OpenStreetMap contributors (ODbL) https://www.openstreetmap.org/copyright",
           },
         ],
       };
