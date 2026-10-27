@@ -1,24 +1,24 @@
 # Jelph OV Planner
 
-Smartere multimodale OV-routeplanner voor Nederland: fans out over nabije haltes/stations, rankt deur-tot-deur opties, en biedt CLI / MCP / web UI.
+Smartere multimodale OV-routeplanner voor Nederland: fans out over nabije haltes/stations, rankt deur-tot-deur opties. De **web UI + API** is het primaire pad; CLI en MCP bestaan als early/experimental shells rond dezelfde planner-core.
 
 Handig gevonden? [Ko-fi / tip jar](https://ko-fi.com/jelphme).
 
 ## Architectuur
 
-npm workspaces-monorepo. Alle slimme routing zit in **`@jelph/planner`**. De apps zijn dunne shells: zelfde core, andere interface.
+npm workspaces-monorepo. Alle slimme routing zit in **`@jelph/planner`**. Web praat via de API; die houdt de key en strip’t debug voor de UI.
 
 ```
-                    ┌─────────────┐  ┌─────────────┐  ┌─────────────┐
-                    │  apps/web   │  │  apps/cli   │  │  apps/mcp   │
-                    │ Vite/React  │  │  terminal   │  │   Cursor    │
-                    └──────┬──────┘  └──────┬──────┘  └──────┬──────┘
-                           │ HTTP           │ import         │ import
-                           ▼                │                │
-                    ┌─────────────┐         │                │
-                    │  apps/api   │◄────────┴────────────────┘
-                    │   Fastify   │   (cli/mcp praten ook
-                    └──────┬──────┘    direct met planner)
+                    ┌─────────────┐
+                    │  apps/web   │  ← primaire UX
+                    │ Vite/React  │
+                    └──────┬──────┘
+                           │ HTTP /api/*
+                           ▼
+                    ┌─────────────┐
+                    │  apps/api   │
+                    │   Fastify   │
+                    └──────┬──────┘
                            │
                            ▼
                  ┌─────────────────────┐
@@ -36,9 +36,8 @@ npm workspaces-monorepo. Alle slimme routing zit in **`@jelph/planner`**. De app
 | Core | `packages/planner` | Places, hubs, fan-out, ranking, NS + Transitous clients |
 | API | `apps/api` | REST, validatie (zod), `NS_API_KEY`, strip debug voor UI |
 | Web | `apps/web` | NL UX; praat alleen met `/api/*` (Vite proxy → `:3000`) |
-| CLI | `apps/cli` | Zelfde `planRoute` vanuit de terminal |
-| MCP | `apps/mcp` | Tools voor Cursor (`plan`, stations, …) |
-| Deploy | `docker-compose.yml`, `Dockerfile.*`, `deploy/` | API + nginx-web op `:8080` |
+| Deploy | `compose.yaml`, `Dockerfile.*`, `deploy/` | API + nginx-web op `:8080` |
+| CLI / MCP | `apps/cli`, `apps/mcp` | Preliminary — zie onderaan |
 
 ### Planner-package (`packages/planner/src`)
 
@@ -75,8 +74,8 @@ Intern: `PlanResult` (incl. `warnings` / debug). Naar buiten via API: `toPublicP
 
 ### Secrets & grenzen
 
-- `NS_API_KEY` alleen in API / CLI / MCP-env — **niet** in de browser.
-- Web → API → planner; CLI/MCP → planner rechtstreeks.
+- `NS_API_KEY` alleen server-side (API-env) — **niet** in de browser.
+- Web → API → planner.
 - Auth is een stub (`GET /api/me`); later om de API heen, niet in de planner.
 
 ## Setup
@@ -104,31 +103,6 @@ npm run dev:web
 ```
 
 Open http://127.0.0.1:5173
-
-CLI / MCP:
-
-```powershell
-npm run cli -- stations Utrecht
-npm run cli -- plan --from "Amsterdam Centraal" --to "Utrecht Centraal"
-npm run mcp
-```
-
-### Cursor MCP
-
-```json
-{
-  "mcpServers": {
-    "jelph-ov-planner": {
-      "command": "npx",
-      "args": ["tsx", "apps/mcp/src/server.ts"],
-      "cwd": "c:\\Users\\jplig\\source\\repos\\NSPlanner",
-      "env": {
-        "NS_API_KEY": "your-key"
-      }
-    }
-  }
-}
-```
 
 ## Docker (self-host)
 
@@ -162,3 +136,30 @@ NsApp-keys geven typisch `API_KEY_NOT_ALLOWED_TO_PLAN_DOOR_TO_DOOR`; Transitous 
 Uitzetten met `TRANSITOUS_ENABLED=false` indien nodig.
 
 Login kan later om `/api/*` heen zonder de planner-package aan te passen.
+
+## CLI & MCP (preliminary)
+
+`apps/cli` en `apps/mcp` zijn vroege experimentele shells: ze importeren `@jelph/planner` rechtstreeks, maar zijn minder uitgewerkt dan de site (geen parity met filters/UX, beperkte polish). Handig om de core te prikken; niet het aanbevolen pad voor dagelijks gebruik.
+
+```powershell
+npm run cli -- stations Utrecht
+npm run cli -- plan --from "Amsterdam Centraal" --to "Utrecht Centraal"
+npm run mcp
+```
+
+Cursor MCP-voorbeeld (eigen key in env):
+
+```json
+{
+  "mcpServers": {
+    "jelph-ov-planner": {
+      "command": "npx",
+      "args": ["tsx", "apps/mcp/src/server.ts"],
+      "cwd": "c:\\Users\\<user>\\source\\repos\\NSPlanner",
+      "env": {
+        "NS_API_KEY": "your-key"
+      }
+    }
+  }
+}
+```
