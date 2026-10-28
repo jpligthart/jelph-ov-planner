@@ -33,7 +33,7 @@ export {
   type PublicPlanResult,
   type ResolvedPlace,
 } from "./planner/plan.js";
-export type { RankedOption } from "./planner/rank.js";
+export { dropDominated, type RankedOption } from "./planner/rank.js";
 export { findNearbyStations, type NearbyOptions } from "./planner/nearby.js";
 export { findNearbyHubs, type TransitHub } from "./planner/hubs.js";
 export { haversineMeters, walkMinutes, WALK_METERS_PER_MINUTE } from "./planner/geo.js";

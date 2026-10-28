@@ -16,6 +16,7 @@ import type { TransitHub } from "./hubs.js";
 import { findNearbyStations } from "./nearby.js";
 import {
   dedupeOptions,
+  dropDominated,
   rankOptions,
   type RankedOption,
 } from "./rank.js";
@@ -429,7 +430,10 @@ export async function planRoute(
     }
   }
 
-  const ranked = rankOptions(dedupeOptions(options)).slice(0, topK);
+  const ranked = rankOptions(dropDominated(dedupeOptions(options))).slice(
+    0,
+    topK,
+  );
   if (ranked.length === 0) {
     warnings.push("Geen reisadviezen gevonden voor deze combinatie.");
   }
