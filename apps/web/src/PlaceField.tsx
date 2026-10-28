@@ -153,6 +153,8 @@ export function PlaceField({
         ref={inputRef}
         id={inputId}
         value={displayValue}
+        // Long names get cut off in the field; hovering shows the whole name.
+        title={displayValue || undefined}
         onChange={(e) => {
           onChange(showsLocation ? "" : e.target.value);
           setOpen(true);
