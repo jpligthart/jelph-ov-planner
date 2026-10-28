@@ -1319,6 +1319,53 @@ button {
   font-weight: 700;
 }
 
+/* Backups for the last connection, under an opened trip's itinerary. */
+.alts {
+  margin: 0 1rem 1rem;
+  padding: 0.7rem 0.85rem 0.75rem;
+  border-radius: 10px;
+  background: var(--surface-2);
+  animation: fade 0.2s ease;
+}
+
+.alts-title {
+  margin: 0 0 0.4rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.alts-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.alt {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.6rem;
+  padding: 0.3rem 0;
+  font-size: 0.88rem;
+  color: var(--ink-2);
+}
+
+.alt-times {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.alt .mode-chip {
+  background: var(--surface);
+}
+
+.alt-later {
+  margin-left: auto;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
 .it-wait.is-tight .it-note svg {
   color: var(--warn);
 }

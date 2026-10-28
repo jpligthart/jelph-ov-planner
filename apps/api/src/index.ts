@@ -11,6 +11,8 @@ import Fastify, { type onRequestHookHandler } from "fastify";
 import {
   NsApiError,
   createNsClientFromEnv,
+  createTransitousClientFromEnv,
+  findConnectionAlternatives,
   parsePlaceString,
   planRoute,
   searchPlaces,
@@ -29,6 +31,16 @@ const PlanBodySchema = z.object({
   maxWalkMeters: z.number().int().positive().max(5000).optional(),
   maxNearby: z.number().int().positive().max(5).optional(),
   topK: z.number().int().positive().max(20).optional(),
+});
+
+const AlternativesBodySchema = z.object({
+  fromLat: z.number().min(-90).max(90),
+  fromLng: z.number().min(-180).max(180),
+  toLat: z.number().min(-90).max(90),
+  toLng: z.number().min(-180).max(180),
+  readyAt: z.string().max(64),
+  arrival: z.string().max(64),
+  maxWalkMeters: z.number().int().positive().max(5000).optional(),
 });
 
 const SearchQuerySchema = z.object({
@@ -150,6 +162,22 @@ app.post("/api/plan", { onRequest: withBudget(planBudget) }, async (request, rep
   const { debug: _debug, ...uiResult } = publicResult;
   return uiResult;
 });
+
+// Only Transitous, no NS calls; asked for when someone opens a trip.
+app.post(
+  "/api/alternatives",
+  { onRequest: withBudget(searchBudget) },
+  async (request, reply) => {
+    const parsed = AlternativesBodySchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.code(400).send({ error: "Ongeldige invoer." });
+    }
+    const transitous = createTransitousClientFromEnv();
+    if (!transitous.enabled) return { alternatives: [] };
+    const alternatives = await findConnectionAlternatives(transitous, parsed.data);
+    return { alternatives };
+  },
+);
 
 app.setErrorHandler((error, _request, reply) => {
   if (error instanceof NsApiError) {

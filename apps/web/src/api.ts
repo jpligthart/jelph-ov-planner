@@ -19,6 +19,10 @@ export type PlanLeg = {
   distanceMeters?: number;
   originTrack?: string;
   destinationTrack?: string;
+  originLat?: number;
+  originLng?: number;
+  destinationLat?: number;
+  destinationLng?: number;
 };
 
 export type PlanOption = {
@@ -77,6 +81,38 @@ export async function planTrip(body: PlanRequest): Promise<PlanResponse> {
   });
   if (!response.ok) throw new Error(await readError(response));
   return (await response.json()) as PlanResponse;
+}
+
+/** Another way to cover the last part of a trip, from the stop you change at. */
+export type ConnectionAlternative = {
+  id: string;
+  departure?: string;
+  arrival?: string;
+  transfers: number;
+  legs: PlanLeg[];
+};
+
+export type AlternativesRequest = {
+  fromLat: number;
+  fromLng: number;
+  toLat: number;
+  toLng: number;
+  readyAt: string;
+  arrival: string;
+  maxWalkMeters?: number;
+};
+
+export async function fetchAlternatives(
+  body: AlternativesRequest,
+): Promise<ConnectionAlternative[]> {
+  const response = await fetch("/api/alternatives", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) throw new Error(await readError(response));
+  const data = (await response.json()) as { alternatives: ConnectionAlternative[] };
+  return data.alternatives ?? [];
 }
 
 export async function searchPlaces(query: string, limit = 8): Promise<PlaceHit[]> {

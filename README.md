@@ -160,6 +160,7 @@ Beheer:
 | GET | `/api/places?q=` | Adres / halte / station autocomplete (NS Places) |
 | GET | `/api/stations?q=` | Station search |
 | POST | `/api/plan` | Body: `{ from, to, dateTime?, searchForArrival?, maxWalkMeters?, maxNearby?, topK? }` — `from`/`to` mag adres, halte, station of `lat,lng` zijn |
+| POST | `/api/alternatives` | Body: `{ fromLat, fromLng, toLat, toLng, readyAt, arrival, maxWalkMeters? }` — andere manieren om vanaf de laatste overstap de bestemming te halen (alleen Transitous); de web-app vraagt dit op bij het openklappen van een reis |
 
 Planning resolved adressen via NS Places, daarna:
 

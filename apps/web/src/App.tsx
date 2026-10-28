@@ -550,6 +550,7 @@ export function App({ onLogout }: { onLogout?: () => void }) {
                         option={option}
                         fromLabel={fromTitle}
                         toLabel={toTitle}
+                        destination={result.to}
                         badges={badges.get(option.id) ?? []}
                       />
                     ))}

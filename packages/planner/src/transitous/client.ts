@@ -12,6 +12,8 @@ export type TransitousPlanQuery = {
   dateTime?: string;
   searchForArrival?: boolean;
   maxWalkMeters?: number;
+  /** Walk limit at the start only; defaults to maxWalkMeters. */
+  maxStartWalkMeters?: number;
   numItineraries?: number;
 };
 
@@ -90,6 +92,10 @@ function mapLeg(leg: RawLeg): TripLegSummary {
         : undefined,
     originTrack: leg.from?.track ?? leg.from?.scheduledTrack,
     destinationTrack: leg.to?.track ?? leg.to?.scheduledTrack,
+    originLat: leg.from?.lat,
+    originLng: leg.from?.lon,
+    destinationLat: leg.to?.lat,
+    destinationLng: leg.to?.lon,
   };
 }
 
@@ -160,14 +166,14 @@ export class TransitousClient {
       "numItineraries",
       String(query.numItineraries ?? 5),
     );
+    // MOTIS limits first/last-mile walking by time; it then considers every
+    // stop reachable within that time, not just the one nearest the coords.
+    const walkSeconds = (meters: number) =>
+      String(Math.round((meters / WALK_METERS_PER_MINUTE) * 60));
+    const startWalk = query.maxStartWalkMeters ?? query.maxWalkMeters;
+    if (startWalk) url.searchParams.set("maxPreTransitTime", walkSeconds(startWalk));
     if (query.maxWalkMeters) {
-      // MOTIS limits first/last-mile walking by time; it then considers every
-      // stop reachable within that time, not just the one nearest the coords.
-      const seconds = String(
-        Math.round((query.maxWalkMeters / WALK_METERS_PER_MINUTE) * 60),
-      );
-      url.searchParams.set("maxPreTransitTime", seconds);
-      url.searchParams.set("maxPostTransitTime", seconds);
+      url.searchParams.set("maxPostTransitTime", walkSeconds(query.maxWalkMeters));
     }
     if (query.dateTime) {
       // MOTIS accepts ISO-8601 timestamps.

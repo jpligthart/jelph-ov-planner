@@ -1,6 +1,6 @@
-import { useId, useState, type CSSProperties } from "react";
-import type { PlanOption } from "./api";
-import { BADGE_LABELS, type Badge } from "./filters";
+import { useEffect, useId, useState, type CSSProperties } from "react";
+import { fetchAlternatives, type ConnectionAlternative, type PlanLeg, type PlanOption } from "./api";
+import { BADGE_LABELS, SEARCH_RADIUS_METERS, type Badge } from "./filters";
 import {
   buildItinerary,
   type ItineraryItem,
@@ -10,6 +10,8 @@ import {
   formatClock,
   formatDistance,
   formatDuration,
+  modalityNl,
+  modeKind,
   transfersLabel,
   walkMetersTotal,
   type Step,
@@ -27,6 +29,8 @@ type Props = {
   option: PlanOption;
   fromLabel: string;
   toLabel: string;
+  /** Where the trip ends, to look for other ways to get there. */
+  destination: { lat: number; lng: number };
   badges: Badge[];
 };
 
@@ -173,9 +177,78 @@ function Itinerary({ id, steps }: { id: string; steps: Step[] }) {
   );
 }
 
-export function OptionCard({ option, fromLabel, toLabel, badges }: Props) {
+type Connection = {
+  /** Where you get off before the last vehicle, e.g. "Eindhoven". */
+  stop: string;
+  lat: number;
+  lng: number;
+  readyAt: string;
+};
+
+/**
+ * The last change onto a vehicle: missing it is what a delay usually costs
+ * you, so that is where a backup helps. Null for direct trips.
+ */
+function lastConnection(legs: PlanLeg[]): Connection | null {
+  const rides = legs.filter((l) => modeKind(l.modality) !== "walk");
+  if (rides.length < 2) return null;
+  const before = rides[rides.length - 2]!;
+  const last = rides[rides.length - 1]!;
+  const lat = before.destinationLat ?? last.originLat;
+  const lng = before.destinationLng ?? last.originLng;
+  if (lat === undefined || lng === undefined || !before.plannedArrival) return null;
+  return { stop: before.destination, lat, lng, readyAt: before.plannedArrival };
+}
+
+/** Backups for the last connection, shown only inside an opened trip. */
+function Alternatives({
+  connection,
+  alternatives,
+  planned,
+}: {
+  connection: Connection;
+  alternatives: ConnectionAlternative[];
+  planned?: Date;
+}) {
+  return (
+    <section className="alts" aria-label="Andere aansluitingen">
+      <h4 className="alts-title">Mis je de aansluiting in {connection.stop}?</h4>
+      <ul className="alts-list">
+        {alternatives.map((alt) => {
+          const rides = alt.legs.filter((l) => modeKind(l.modality) !== "walk");
+          const arrive = alt.arrival ? new Date(alt.arrival) : undefined;
+          const later =
+            planned && arrive ? Math.round((arrive.getTime() - planned.getTime()) / 60000) : 0;
+          return (
+            <li key={alt.id} className="alt">
+              <span className="alt-times">
+                {formatClock(alt.departure)} → {formatClock(arrive)}
+              </span>
+              <span className="mode-chips">
+                {rides.map((leg, i) => {
+                  const kind = modeKind(leg.modality);
+                  return (
+                    <span key={i} className={`mode-chip mode-${kind}`}>
+                      <ModeIcon kind={kind} size={14} />
+                      {modalityNl(leg.modality)}
+                    </span>
+                  );
+                })}
+              </span>
+              {later > 0 ? <span className="alt-later">+{formatDuration(later)}</span> : null}
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
+export function OptionCard({ option, fromLabel, toLabel, destination, badges }: Props) {
   const [open, setOpen] = useState(false);
   const detailsId = useId();
+  const [alternatives, setAlternatives] = useState<ConnectionAlternative[] | null>(null);
+  const connection = lastConnection(option.legs);
 
   const steps = buildSteps(option, fromLabel, toLabel);
   const depart = doorDeparture(option);
@@ -183,6 +256,28 @@ export function OptionCard({ option, fromLabel, toLabel, badges }: Props) {
   const walk = walkMetersTotal(option);
   const transit = steps.filter((s) => s.kind !== "walk");
   const cancelled = option.legs.some((l) => l.cancelled);
+
+  // Looked up once, the first time the trip is opened. Failures just show
+  // nothing: the backup is a nice-to-have, not part of the trip.
+  const wantAlternatives = open && connection !== null && alternatives === null;
+  useEffect(() => {
+    if (!wantAlternatives || !connection || !arrive) return;
+    let current = true;
+    fetchAlternatives({
+      fromLat: connection.lat,
+      fromLng: connection.lng,
+      toLat: destination.lat,
+      toLng: destination.lng,
+      readyAt: connection.readyAt,
+      arrival: arrive.toISOString(),
+      maxWalkMeters: SEARCH_RADIUS_METERS,
+    })
+      .catch(() => [])
+      .then((list) => current && setAlternatives(list));
+    return () => {
+      current = false;
+    };
+  }, [wantAlternatives]);
 
   return (
     <li className={`option${open ? " is-open" : ""}${cancelled ? " is-cancelled" : ""}`}>
@@ -250,6 +345,9 @@ export function OptionCard({ option, fromLabel, toLabel, badges }: Props) {
       </button>
 
       {open ? <Itinerary id={detailsId} steps={steps} /> : null}
+      {open && connection && alternatives && alternatives.length > 0 ? (
+        <Alternatives connection={connection} alternatives={alternatives} planned={arrive} />
+      ) : null}
     </li>
   );
 }

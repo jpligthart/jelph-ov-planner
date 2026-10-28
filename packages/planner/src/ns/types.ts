@@ -20,6 +20,11 @@ export type TripLegSummary = {
   /** Platform/track at the boarding and alighting stop, when known. */
   originTrack?: string;
   destinationTrack?: string;
+  /** Stop coordinates, when the source provides them. */
+  originLat?: number;
+  originLng?: number;
+  destinationLat?: number;
+  destinationLng?: number;
 };
 
 export type NsTrip = {

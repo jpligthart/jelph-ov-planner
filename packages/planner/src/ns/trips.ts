@@ -7,6 +7,8 @@ type RawStop = {
   actualDateTime?: string;
   plannedTrack?: string;
   actualTrack?: string;
+  lat?: number;
+  lng?: number;
 };
 
 type RawLeg = {
@@ -100,6 +102,10 @@ function mapLeg(leg: RawLeg): TripLegSummary {
     originTrack: leg.origin?.actualTrack ?? leg.origin?.plannedTrack,
     destinationTrack:
       leg.destination?.actualTrack ?? leg.destination?.plannedTrack,
+    originLat: leg.origin?.lat,
+    originLng: leg.origin?.lng,
+    destinationLat: leg.destination?.lat,
+    destinationLng: leg.destination?.lng,
   };
 }
 
