@@ -118,10 +118,20 @@ API health via nginx: http://localhost:8080/health
 
 ### Live op een VM (nginx + HTTPS + login)
 
+De VM bouwt niets zelf: images worden lokaal gebouwd en via een registry gedeeld.
+
+0. **Images pushen** (op je ontwikkelmachine) — zet `IMAGE_REGISTRY` in `.env`, dan:
+
+   ```sh
+   docker login <registry-host>
+   npm run docker:push      # bouwt api + web voor amd64 en arm64, pusht :latest
+   ```
+
+   Op de VM: [`deploy/compose.prod.yaml`](deploy/compose.prod.yaml) als `compose.yaml` naast een `.env` (met dezelfde `IMAGE_REGISTRY`), `docker login <registry-host>` en `docker compose up -d`. Updaten: opnieuw pushen en op de VM `docker compose up -d` (haalt altijd de nieuwste images op).
+
 1. **Gebruikers aanmaken** — per persoon een regel voor `AUTH_USERS`:
 
    ```sh
-   docker compose build api
    docker compose run --rm api node apps/api/dist/hash-password.js jp
    ```
 
@@ -129,7 +139,7 @@ API health via nginx: http://localhost:8080/health
 
 2. **Secret** — `AUTH_SECRET=` met de uitvoer van `openssl rand -base64 32`.
 
-3. **Starten** — `docker compose up --build -d`. Zonder `AUTH_USERS` weigert de API te starten.
+3. **Starten** — `docker compose up -d`. Zonder `AUTH_USERS` weigert de API te starten.
 
 4. **nginx op de VM** — zie [`deploy/host-nginx.conf`](deploy/host-nginx.conf), daarna `certbot --nginx`. De container luistert alleen op `127.0.0.1:8080`, dus alles loopt via HTTPS.
 

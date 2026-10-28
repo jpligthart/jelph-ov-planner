@@ -16,6 +16,7 @@
     "dev:web": "npm run dev -w @jelph/web",
     "cli": "npm run start -w @jelph/cli --",
     "mcp": "npm run start -w @jelph/mcp",
+    "docker:push": "sh deploy/push-images.sh",
     "typecheck": "npm run typecheck -w @jelph/planner && npm run typecheck -w @jelph/api && npm run typecheck -w @jelph/cli && npm run typecheck -w @jelph/mcp && npm run typecheck -w @jelph/web"
   },
   "engines": {

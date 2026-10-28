@@ -1,0 +1,45 @@
+# Production: pulls the images from the registry instead of building them.
+# On the server, put this file as compose.yaml next to a .env with at least
+# IMAGE_REGISTRY, NS_API_KEY, AUTH_USERS and AUTH_SECRET (see .env.example).
+#
+#   docker login <registry host>
+#   docker compose up -d          # pulls the latest images and (re)starts
+name: jelph-ov-planner
+
+services:
+  api:
+    image: ${IMAGE_REGISTRY:?Set IMAGE_REGISTRY in .env}/ov-planner-api:${IMAGE_TAG:-latest}
+    container_name: jelph-ov-api
+    pull_policy: always
+    env_file:
+      - .env
+    environment:
+      PORT: "3000"
+      HOST: "0.0.0.0"
+    expose:
+      - "3000"
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  web:
+    image: ${IMAGE_REGISTRY:?Set IMAGE_REGISTRY in .env}/ov-planner-web:${IMAGE_TAG:-latest}
+    container_name: jelph-ov-web
+    pull_policy: always
+    ports:
+      # Localhost only: the host's nginx (HTTPS) proxies to this port.
+      - "127.0.0.1:8080:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped

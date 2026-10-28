@@ -1,5 +1,11 @@
+# Local build. For the server, see deploy/compose.prod.yaml (pulls from the
+# registry) and deploy/push-images.sh (builds and pushes the images).
+name: jelph-ov-planner
+
 services:
   api:
+    image: ${IMAGE_REGISTRY:-local}/ov-planner-api:${IMAGE_TAG:-latest}
+    container_name: jelph-ov-api
     build:
       context: .
       dockerfile: Dockerfile.api
@@ -25,6 +31,8 @@ services:
       start_period: 10s
 
   web:
+    image: ${IMAGE_REGISTRY:-local}/ov-planner-web:${IMAGE_TAG:-latest}
+    container_name: jelph-ov-web
     build:
       context: .
       dockerfile: Dockerfile.web
