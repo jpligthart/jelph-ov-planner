@@ -124,7 +124,25 @@ export const BADGE_LABELS: Record<Badge, string> = {
   fewestTransfers: "Minste overstappen",
 };
 
-export type SearchContext = { mode: "depart" | "arrive"; at: number };
+export type SearchContext = {
+  mode: "depart" | "arrive";
+  at: number;
+  /** Options from the user's own search, not added by "Eerdere/Latere reizen". */
+  initialIds?: ReadonlySet<string>;
+};
+
+const MIN = 60000;
+
+/**
+ * Minutes between the trip and the time the user chose: how long before the
+ * deadline you arrive, or how long after the chosen time you leave. Negative
+ * when the trip misses that time.
+ */
+function waitMinutes(option: PlanOption, context: SearchContext): number {
+  return context.mode === "arrive"
+    ? (context.at - (doorArrival(option)?.getTime() ?? context.at)) / MIN
+    : ((doorDeparture(option)?.getTime() ?? context.at) - context.at) / MIN;
+}
 
 /**
  * Overall "best" trip in minutes-equivalent (lower is better): travel time,
@@ -132,11 +150,7 @@ export type SearchContext = { mode: "depart" | "arrive"; at: number };
  * walking beyond a comfortable distance.
  */
 function recommendScore(option: PlanOption, context: SearchContext): number {
-  const MIN = 60000;
-  const wait =
-    context.mode === "arrive"
-      ? (context.at - (doorArrival(option)?.getTime() ?? context.at)) / MIN
-      : ((doorDeparture(option)?.getTime() ?? context.at) - context.at) / MIN;
+  const wait = waitMinutes(option, context);
   // Walking in minutes beyond a comfortable amount; a long single stretch
   // weighs extra on top of the total.
   const extraWalk =
@@ -158,21 +172,36 @@ export function computeBadges(
   const badges = new Map<string, Badge[]>();
   if (options.length < 2) return badges;
 
+  let recommended: PlanOption | undefined;
   if (context) {
-    const best = options.reduce((a, b) =>
+    // Only trips that fit the time the user chose, from their own search:
+    // loading earlier or later trips must not move the recommendation.
+    const fits = options.filter(
+      (o) =>
+        waitMinutes(o, context) >= -1 &&
+        (!context.initialIds || context.initialIds.has(o.id)),
+    );
+    const candidates = fits.length > 0 ? fits : options;
+    recommended = candidates.reduce((a, b) =>
       recommendScore(b, context) < recommendScore(a, context) ? b : a,
     );
-    badges.set(best.id, ["recommended"]);
+    badges.set(recommended.id, ["recommended"]);
   }
 
   const add = (id: string, badge: Badge) =>
     badges.set(id, [...(badges.get(id) ?? []), badge]);
 
+  // On a tie, the recommended trip, else the one closest to the chosen time.
+  const closeness = (o: PlanOption) =>
+    o === recommended ? -1 : context ? Math.abs(waitMinutes(o, context)) : 0;
+
   const pick = (score: (o: PlanOption) => number, badge: Badge) => {
     const best = Math.min(...options.map(score));
     const winners = options.filter((o) => score(o) === best);
     // A badge is only informative when not everyone shares it.
-    if (winners.length < options.length) add(winners[0].id, badge);
+    if (winners.length === options.length) return;
+    const winner = winners.reduce((a, b) => (closeness(b) < closeness(a) ? b : a));
+    add(winner.id, badge);
   };
 
   pick((o) => o.totalDoorToDoorMinutes, "fastest");

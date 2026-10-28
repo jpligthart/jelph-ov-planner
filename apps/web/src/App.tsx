@@ -80,6 +80,8 @@ type Search = {
   minDepart: number;
   /** Latest arrival shown (arrival searches); raised by "Latere reizen". */
   maxArrive: number;
+  /** Options of the search itself, before any "Eerdere/Latere reizen". */
+  initialIds: ReadonlySet<string>;
 };
 
 /** Same trip found by different searches. */
@@ -150,7 +152,9 @@ export function App() {
     () =>
       computeBadges(
         visible,
-        searched ? { mode: searched.choice.mode, at: searched.at } : undefined,
+        searched
+          ? { mode: searched.choice.mode, at: searched.at, initialIds: searched.initialIds }
+          : undefined,
       ),
     [visible, searched],
   );
@@ -203,6 +207,7 @@ export function App() {
         at: at.getTime(),
         minDepart: at.getTime(),
         maxArrive: at.getTime(),
+        initialIds: new Set(data.options.map((o) => o.id)),
       });
       if (!isCoords(f) && !isCoords(t)) setRecent(pushRecent({ from: f, to: t }));
       if (isMobile) setCollapsed(true);
