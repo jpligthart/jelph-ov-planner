@@ -26,9 +26,50 @@ if (!registry) {
   process.exit(1);
 }
 
-for (const app of ["api", "web"]) {
+const git = (...args) =>
+  spawnSync("git", args, { cwd: root, encoding: "utf8" }).stdout?.trim() ?? "";
+if (git("status", "--porcelain")) {
+  console.warn("Warning: uncommitted changes are included in the images.");
+}
+
+const { version, license } = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+const source = "https://github.com/jpligthart/jelph-ov-planner";
+const apps = {
+  api: {
+    title: "Jelph OV Planner API",
+    description: "Route planning API for the Jelph OV Planner (NS + Transitous), with login and rate limiting.",
+  },
+  web: {
+    title: "Jelph OV Planner Web",
+    description: "Web app for the Jelph OV Planner: door-to-door public transport planning in the Netherlands.",
+  },
+};
+
+// OCI metadata: as labels (image config, docker inspect) and as annotations
+// on the multi-arch index and manifests (shown by registries such as zot).
+function metadata(app) {
+  return {
+    "org.opencontainers.image.title": apps[app].title,
+    "org.opencontainers.image.description": apps[app].description,
+    "org.opencontainers.image.vendor": "Jelph",
+    "org.opencontainers.image.authors": "Jelph (https://jelph.nl)",
+    "org.opencontainers.image.url": "https://jelph.nl",
+    "org.opencontainers.image.source": source,
+    "org.opencontainers.image.documentation": `${source}#readme`,
+    "org.opencontainers.image.licenses": license,
+    "org.opencontainers.image.version": version,
+    "org.opencontainers.image.revision": git("rev-parse", "HEAD"),
+    "org.opencontainers.image.created": new Date().toISOString(),
+  };
+}
+
+for (const app of Object.keys(apps)) {
   const image = `${registry}/ov-planner-${app}:${tag}`;
   console.log(`==> ${image} (${platforms})`);
+  const meta = Object.entries(metadata(app)).flatMap(([key, value]) => [
+    "--label", `${key}=${value}`,
+    "--annotation", `index,manifest:${key}=${value}`,
+  ]);
   const result = spawnSync(
     "docker",
     [
@@ -36,6 +77,7 @@ for (const app of ["api", "web"]) {
       "--platform", platforms,
       "--file", `Dockerfile.${app}`,
       "--tag", image,
+      ...meta,
       "--push",
       ".",
     ],
