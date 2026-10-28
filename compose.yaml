@@ -1,5 +1,5 @@
 # Local build. For the server, see deploy/compose.prod.yaml (pulls from the
-# registry) and deploy/push-images.sh (builds and pushes the images).
+# registry) and deploy/push-images.mjs (builds and pushes the images).
 name: jelph-ov-planner
 
 services:
