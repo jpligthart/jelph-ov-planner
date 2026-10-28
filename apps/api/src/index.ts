@@ -8,7 +8,7 @@ loadEnv({
   quiet: true,
 });
 import cors from "@fastify/cors";
-import Fastify from "fastify";
+import Fastify, { type onRequestHookHandler } from "fastify";
 import {
   NsApiError,
   createNsClientFromEnv,
@@ -19,6 +19,7 @@ import {
   toPublicPlanResult,
 } from "@jelph/planner";
 import { z } from "zod";
+import { RequestBudget, limitFromEnv } from "./budget.js";
 
 const PlanBodySchema = z.object({
   from: z.string().min(1),
@@ -38,6 +39,41 @@ const SearchQuerySchema = z.object({
 const port = Number(process.env.PORT ?? "3000");
 const host = process.env.HOST ?? "0.0.0.0";
 
+// The NS API allows 300 requests per 5 minutes for free keys. A plan fans out
+// into up to ~15 NS calls (place lookups, nearby stations, 3x3 trip searches);
+// a search is one call. Defaults: 12 x 15 + 100 = 280, just under 300.
+const BUDGET_WINDOW_MS = 5 * 60 * 1000;
+const planBudget = new RequestBudget(
+  limitFromEnv("PLAN_LIMIT_PER_5_MIN", 12),
+  BUDGET_WINDOW_MS,
+);
+const searchBudget = new RequestBudget(
+  limitFromEnv("SEARCH_LIMIT_PER_5_MIN", 100),
+  BUDGET_WINDOW_MS,
+);
+
+// On by default only in production (the Docker image), so local dev and
+// testing never hit the budget. RATE_LIMIT_ENABLED=true/false overrides.
+const rateLimitEnabled =
+  (process.env.RATE_LIMIT_ENABLED ??
+    String(process.env.NODE_ENV === "production")) === "true";
+
+function withBudget(budget: RequestBudget): onRequestHookHandler {
+  return async (request, reply) => {
+    if (!rateLimitEnabled) return;
+    const result = budget.take();
+    if (result.ok) return;
+    request.log.warn({ url: request.url, ...result }, "request budget exhausted");
+    return reply
+      .code(429)
+      .header("Retry-After", String(result.retryAfterSeconds))
+      .send({
+        error: "Even te druk bij de reisplanner. Probeer het zo opnieuw.",
+        retryAfterSeconds: result.retryAfterSeconds,
+      });
+  };
+}
+
 const app = Fastify({
   logger: true,
 });
@@ -54,7 +90,7 @@ app.get("/api/me", async () => ({
   auth: "disabled" as const,
 }));
 
-app.get("/api/stations", async (request, reply) => {
+app.get("/api/stations", { onRequest: withBudget(searchBudget) }, async (request, reply) => {
   const parsed = SearchQuerySchema.safeParse(request.query);
   if (!parsed.success) {
     return reply.code(400).send({
@@ -72,7 +108,7 @@ app.get("/api/stations", async (request, reply) => {
   return { stations };
 });
 
-app.get("/api/places", async (request, reply) => {
+app.get("/api/places", { onRequest: withBudget(searchBudget) }, async (request, reply) => {
   const parsed = SearchQuerySchema.safeParse(request.query);
   if (!parsed.success) {
     return reply.code(400).send({
@@ -88,7 +124,7 @@ app.get("/api/places", async (request, reply) => {
   return { places };
 });
 
-app.post("/api/plan", async (request, reply) => {
+app.post("/api/plan", { onRequest: withBudget(planBudget) }, async (request, reply) => {
   const parsed = PlanBodySchema.safeParse(request.body);
   if (!parsed.success) {
     return reply.code(400).send({
