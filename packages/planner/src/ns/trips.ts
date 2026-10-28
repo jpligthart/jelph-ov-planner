@@ -1,14 +1,18 @@
 import type { NsClient } from "./client.js";
 import type { NsTrip, TripLegSummary, TripsQuery } from "./types.js";
 
+type RawStop = {
+  name?: string;
+  plannedDateTime?: string;
+  actualDateTime?: string;
+  plannedTrack?: string;
+  actualTrack?: string;
+};
+
 type RawLeg = {
   cancelled?: boolean;
-  origin?: { name?: string; plannedDateTime?: string; actualDateTime?: string };
-  destination?: {
-    name?: string;
-    plannedDateTime?: string;
-    actualDateTime?: string;
-  };
+  origin?: RawStop;
+  destination?: RawStop;
   product?: {
     longCategoryName?: string;
     shortCategoryName?: string;
@@ -93,6 +97,9 @@ function mapLeg(leg: RawLeg): TripLegSummary {
       leg.product?.type,
     cancelled: leg.cancelled === true,
     distanceMeters: leg.distanceInMeters ?? leg.distance,
+    originTrack: leg.origin?.actualTrack ?? leg.origin?.plannedTrack,
+    destinationTrack:
+      leg.destination?.actualTrack ?? leg.destination?.plannedTrack,
   };
 }
 

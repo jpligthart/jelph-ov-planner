@@ -1217,6 +1217,14 @@ button {
   padding: 0.35rem 0;
 }
 
+.it-kind {
+  display: block;
+  margin-top: 0.1rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--muted);
+}
+
 .it-note {
   display: flex;
   align-items: center;

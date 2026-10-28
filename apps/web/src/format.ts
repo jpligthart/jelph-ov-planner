@@ -193,6 +193,8 @@ export type Step = {
   minutes: number;
   meters?: number;
   cancelled?: boolean;
+  originTrack?: string;
+  destinationTrack?: string;
 };
 
 /** Door-to-door list of steps, including walks to/from nearby hubs. */
@@ -226,6 +228,8 @@ export function buildSteps(option: PlanOption, fromLabel: string, toLabel: strin
       minutes,
       meters: kind === "walk" ? walkLegMeters(leg) : undefined,
       cancelled: leg.cancelled,
+      originTrack: leg.originTrack,
+      destinationTrack: leg.destinationTrack,
     });
   }
 
@@ -263,11 +267,13 @@ export type ItineraryItem =
   | {
       type: "stop";
       name: string;
+      /** What kind of stop this is, e.g. "Treinstation · spoor 2". */
+      detail?: string;
       arrive?: Date;
       depart?: Date;
       role: "start" | "via" | "end";
     }
-  | { type: "move"; step: Step }
+  | { type: "move"; step: Step; toward?: string }
   | { type: "wait"; minutes: number; tight: boolean };
 
 function isTrivialWalk(step: Step): boolean {
@@ -275,6 +281,46 @@ function isTrivialWalk(step: Step): boolean {
   return step.meters !== undefined
     ? step.meters < TRIVIAL_WALK_METERS
     : step.minutes <= 1;
+}
+
+const STOP_LABELS: Partial<Record<ModeKind, string>> = {
+  train: "Treinstation",
+  bus: "Bushalte",
+  tram: "Tramhalte",
+  metro: "Metrostation",
+  ferry: "Veerhaven",
+};
+
+const isVehicle = (step?: Step): step is Step =>
+  step !== undefined && step.kind !== "walk";
+
+/**
+ * Bus stops and train stations often share a name ("Helmond, Station" is the
+ * bus stop, "Helmond" the railway station), so say which one a stop is,
+ * judged by the vehicle you board there, else the one you got off.
+ */
+function stopDetail(before?: Step, after?: Step): string | undefined {
+  const [vehicle, track] = isVehicle(after)
+    ? [after, after.originTrack]
+    : isVehicle(before)
+      ? [before, before.destinationTrack]
+      : [undefined, undefined];
+  const label = vehicle ? STOP_LABELS[vehicle.kind] : undefined;
+  if (!label) return undefined;
+  if (!track) return label;
+  return `${label} · ${vehicle!.kind === "train" ? "spoor" : "perron"} ${track}`;
+}
+
+/** Where a walk leads, when it takes you to a vehicle: "naar spoor 2". */
+function walkToward(next?: Step): string | undefined {
+  if (!isVehicle(next)) return undefined;
+  if (next.kind === "train") {
+    return next.originTrack ? `naar spoor ${next.originTrack}` : "naar de trein";
+  }
+  const label = STOP_LABELS[next.kind];
+  if (!label) return undefined;
+  const toward = `naar de ${label.toLowerCase()}`;
+  return next.originTrack ? `${toward}, perron ${next.originTrack}` : toward;
 }
 
 const diffMinutes = (a?: Date, b?: Date) =>
@@ -291,17 +337,33 @@ export function buildItinerary(steps: Step[]): ItineraryItem[] {
   if (kept.length === 0) return [];
 
   const items: ItineraryItem[] = [
-    { type: "stop", name: kept[0].origin, depart: kept[0].start, role: "start" },
+    {
+      type: "stop",
+      name: kept[0].origin,
+      detail: stopDetail(undefined, kept[0]),
+      depart: kept[0].start,
+      role: "start",
+    },
   ];
   let rodeVehicle = false;
 
   kept.forEach((step, i) => {
-    items.push({ type: "move", step });
+    const next = kept[i + 1];
+    items.push({
+      type: "move",
+      step,
+      toward: step.kind === "walk" ? walkToward(next) : undefined,
+    });
     if (step.kind !== "walk") rodeVehicle = true;
 
-    const next = kept[i + 1];
     if (!next) {
-      items.push({ type: "stop", name: step.destination, arrive: step.end, role: "end" });
+      items.push({
+        type: "stop",
+        name: step.destination,
+        detail: stopDetail(step, undefined),
+        arrive: step.end,
+        role: "end",
+      });
       return;
     }
 
@@ -309,6 +371,7 @@ export function buildItinerary(steps: Step[]): ItineraryItem[] {
     items.push({
       type: "stop",
       name: step.destination,
+      detail: stopDetail(step, next),
       arrive: step.end,
       depart: next.start,
       role: "via",

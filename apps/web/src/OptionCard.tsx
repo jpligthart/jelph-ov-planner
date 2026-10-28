@@ -118,7 +118,10 @@ function Itinerary({ id, steps }: { id: string; steps: Step[] }) {
               <span className="it-rail" aria-hidden="true">
                 <span className="it-dot" />
               </span>
-              <span className="it-name">{item.name}</span>
+              <span className="it-name">
+                {item.name}
+                {item.detail ? <span className="it-kind">{item.detail}</span> : null}
+              </span>
             </li>
           );
         }
@@ -152,6 +155,7 @@ function Itinerary({ id, steps }: { id: string; steps: Step[] }) {
               {walk ? (
                 <span>
                   {formatDuration(s.minutes)} lopen
+                  {item.toward ? ` ${item.toward}` : ""}
                   {s.meters ? ` · ${formatDistance(s.meters)}` : ""}
                 </span>
               ) : (

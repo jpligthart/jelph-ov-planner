@@ -1,4 +1,4 @@
-import { NsApiError, type NsClient } from "../ns/client.js";
+import type { NsClient } from "../ns/client.js";
 import {
   resolvePlaceQuery,
   type PlaceHit,
@@ -12,7 +12,8 @@ import {
   createTransitousClientFromEnv,
 } from "../transitous/client.js";
 import { walkMinutes } from "./geo.js";
-import { findNearbyHubs, type TransitHub } from "./hubs.js";
+import type { TransitHub } from "./hubs.js";
+import { findNearbyStations } from "./nearby.js";
 import {
   dedupeOptions,
   rankOptions,
@@ -46,7 +47,6 @@ export type PlanResult = {
   options: RankedOption[];
   queriedCombinations: number;
   warnings: string[];
-  doorToDoorAvailable: boolean;
   transitousUsed: boolean;
 };
 
@@ -240,32 +240,76 @@ function buildOption(args: {
   };
 }
 
-type TripAttempt = {
-  trips: NsTrip[];
-  doorToDoorBlocked: boolean;
-  errorMessage?: string;
-};
+/** NS trip calls run in parallel, but capped so we don't burst the NS API. */
+const NS_CONCURRENCY = 4;
 
-async function attemptTrips(
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let next = 0;
+  const workers = Array.from(
+    { length: Math.min(limit, items.length) },
+    async () => {
+      while (next < items.length) {
+        const index = next++;
+        results[index] = await fn(items[index]!);
+      }
+    },
+  );
+  await Promise.all(workers);
+  return results;
+}
+
+async function tryTrips(
   client: NsClient,
   query: TripsQuery,
-): Promise<TripAttempt> {
+): Promise<NsTrip[]> {
   try {
-    return { trips: await searchTrips(client, query), doorToDoorBlocked: false };
-  } catch (error) {
-    if (error instanceof NsApiError && error.isDoorToDoorForbidden) {
-      return {
-        trips: [],
-        doorToDoorBlocked: true,
-        errorMessage: error.message,
-      };
-    }
-    return {
-      trips: [],
-      doorToDoorBlocked: false,
-      errorMessage: error instanceof Error ? error.message : String(error),
-    };
+    return await searchTrips(client, query);
+  } catch {
+    return [];
   }
+}
+
+function stationToHub(station: Station): TransitHub {
+  return {
+    id: `station:${station.code || station.uicCode}`,
+    code: station.code || station.uicCode,
+    name: station.name,
+    lat: station.lat,
+    lng: station.lng,
+    kind: "station",
+    distanceMeters: station.distanceMeters ?? 0,
+  };
+}
+
+/**
+ * Train stations within walking distance of a place. When the place is itself
+ * a station it comes first, followed by other stations in walking range.
+ */
+async function nearbyStationHubs(
+  client: NsClient,
+  place: ResolvedPlace,
+  options: { maxWalkMeters: number; maxNearby: number },
+): Promise<TransitHub[]> {
+  const self = asStationHub(place);
+  const stations = await findNearbyStations(
+    client,
+    place.lat,
+    place.lng,
+    options,
+  ).catch(() => [] as Station[]);
+
+  const hubs = self ? [self] : [];
+  for (const hub of stations.map(stationToHub)) {
+    if (hubs.length >= options.maxNearby) break;
+    if (hubs.some((h) => h.code === hub.code)) continue;
+    hubs.push(hub);
+  }
+  return hubs;
 }
 
 export async function planRoute(
@@ -277,215 +321,111 @@ export async function planRoute(
   const topK = request.topK ?? 8;
   const warnings: string[] = [];
 
-  const from = await resolvePlace(client, request.from);
-  const to = await resolvePlace(client, request.to);
+  const [from, to] = await Promise.all([
+    resolvePlace(client, request.from),
+    resolvePlace(client, request.to),
+  ]);
 
-  const nearbyFrom =
-    asStationHub(from) ??
-    (await findNearbyHubs(client, from.lat, from.lng, {
-      maxWalkMeters,
-      maxNearby,
-    }));
-
-  const nearbyTo =
-    asStationHub(to) ??
-    (await findNearbyHubs(client, to.lat, to.lng, {
-      maxWalkMeters,
-      maxNearby,
-    }));
-
-  const nearbyFromList = Array.isArray(nearbyFrom) ? nearbyFrom : [nearbyFrom];
-  const nearbyToList = Array.isArray(nearbyTo) ? nearbyTo : [nearbyTo];
-
-  const options: RankedOption[] = [];
-  let queriedCombinations = 0;
-  let doorToDoorAvailable = true;
-
-  queriedCombinations += 1;
-  const baseline = await attemptTrips(client, {
-    originLat: from.lat,
-    originLng: from.lng,
-    originName: from.label,
-    destinationLat: to.lat,
-    destinationLng: to.lng,
-    destinationName: to.label,
-    dateTime: request.dateTime,
-    searchForArrival: request.searchForArrival,
-    originWalk: true,
-    destinationWalk: true,
-  });
-
-  if (baseline.doorToDoorBlocked) {
-    doorToDoorAvailable = false;
-    warnings.push(
-      "NS API-key blokkeert deur-tot-deur (bus/tram/metro). Transitous + NS station-alternatieven worden gebruikt.",
-    );
-  } else {
-    for (const trip of baseline.trips) {
-      options.push(
-        buildOption({
-          trip,
-          origin: from,
-          destination: to,
-          walkMetersOrigin: 0,
-          walkMetersDestination: 0,
-          source: "baseline",
-          includeWalkInTransit: true,
-        }),
-      );
-    }
-  }
-
-  const fromStations = nearbyFromList.filter((h) => h.kind === "station");
-  const toStations = nearbyToList.filter((h) => h.kind === "station");
-
-  for (const originHub of fromStations) {
-    for (const destHub of toStations) {
-      if (originHub.code === destHub.code) continue;
-      queriedCombinations += 1;
-      const attempt = await attemptTrips(client, {
-        fromStation: originHub.code,
-        toStation: destHub.code,
-        dateTime: request.dateTime,
-        searchForArrival: request.searchForArrival,
-      });
-      for (const trip of attempt.trips) {
-        options.push(
-          buildOption({
-            trip,
-            fromHub: originHub,
-            toHub: destHub,
-            origin: from,
-            destination: to,
-            walkMetersOrigin: originHub.distanceMeters,
-            walkMetersDestination: destHub.distanceMeters,
-            source: "nearby_combo",
-            includeWalkInTransit: false,
-          }),
-        );
-      }
-    }
-  }
-
-  if (doorToDoorAvailable) {
-    const originStops = nearbyFromList
-      .filter((h) => h.kind === "stop")
-      .slice(0, maxNearby);
-    const destStops = nearbyToList
-      .filter((h) => h.kind === "stop")
-      .slice(0, maxNearby);
-
-    for (const originHub of originStops) {
-      queriedCombinations += 1;
-      const attempt = await attemptTrips(client, {
-        originLat: originHub.lat,
-        originLng: originHub.lng,
-        originName: originHub.name,
-        destinationLat: to.lat,
-        destinationLng: to.lng,
-        destinationName: to.label,
-        dateTime: request.dateTime,
-        searchForArrival: request.searchForArrival,
-        originWalk: true,
-        destinationWalk: true,
-      });
-      if (attempt.doorToDoorBlocked) {
-        doorToDoorAvailable = false;
-        break;
-      }
-      for (const trip of attempt.trips) {
-        options.push(
-          buildOption({
-            trip,
-            fromHub: originHub,
-            origin: from,
-            destination: to,
-            walkMetersOrigin: originHub.distanceMeters,
-            walkMetersDestination: 0,
-            source: "nearby_combo",
-            includeWalkInTransit: false,
-          }),
-        );
-      }
-    }
-
-    if (doorToDoorAvailable) {
-      for (const destHub of destStops) {
-        queriedCombinations += 1;
-        const attempt = await attemptTrips(client, {
-          originLat: from.lat,
-          originLng: from.lng,
-          originName: from.label,
-          destinationLat: destHub.lat,
-          destinationLng: destHub.lng,
-          destinationName: destHub.name,
-          dateTime: request.dateTime,
-          searchForArrival: request.searchForArrival,
-          originWalk: true,
-          destinationWalk: true,
-        });
-        if (attempt.doorToDoorBlocked) {
-          doorToDoorAvailable = false;
-          break;
-        }
-        for (const trip of attempt.trips) {
-          options.push(
-            buildOption({
-              trip,
-              toHub: destHub,
-              origin: from,
-              destination: to,
-              walkMetersOrigin: 0,
-              walkMetersDestination: destHub.distanceMeters,
-              source: "nearby_combo",
-              includeWalkInTransit: false,
-            }),
-          );
-        }
-      }
-    }
-  }
-
-  let transitousUsed = false;
   const wantTransitous = request.useTransitous !== false;
   const transitous =
     request.transitousClient ??
     (wantTransitous ? createTransitousClientFromEnv() : null);
 
-  if (wantTransitous && transitous?.enabled) {
-    queriedCombinations += 1;
-    try {
-      const itineraries = await transitous.plan({
-        fromLat: from.lat,
-        fromLng: from.lng,
-        toLat: to.lat,
-        toLng: to.lng,
+  // Bus/tram/metro and alternative stops in walking range come from Transitous:
+  // one call, MOTIS considers every stop within the walk radius itself.
+  // The NS API only does station-to-station for non-employee keys.
+  const transitousPromise =
+    wantTransitous && transitous?.enabled
+      ? transitous
+          .plan({
+            fromLat: from.lat,
+            fromLng: from.lng,
+            toLat: to.lat,
+            toLng: to.lng,
+            dateTime: request.dateTime,
+            searchForArrival: request.searchForArrival,
+            maxWalkMeters,
+            numItineraries: Math.min(topK, 5),
+          })
+          .then(
+            (itineraries) => ({ itineraries, error: undefined }),
+            (error: unknown) => ({
+              itineraries: [],
+              error: error instanceof Error ? error.message : String(error),
+            }),
+          )
+      : null;
+
+  const [nearbyFromList, nearbyToList] = await Promise.all([
+    nearbyStationHubs(client, from, { maxWalkMeters, maxNearby }),
+    nearbyStationHubs(client, to, { maxWalkMeters, maxNearby }),
+  ]);
+
+  const combos = nearbyFromList.flatMap((originHub) =>
+    nearbyToList
+      .filter((destHub) => destHub.code !== originHub.code)
+      .map((destHub) => ({ originHub, destHub })),
+  );
+
+  const comboResults = await mapWithConcurrency(
+    combos,
+    NS_CONCURRENCY,
+    async ({ originHub, destHub }) => ({
+      originHub,
+      destHub,
+      trips: await tryTrips(client, {
+        fromStation: originHub.code,
+        toStation: destHub.code,
         dateTime: request.dateTime,
         searchForArrival: request.searchForArrival,
-        maxWalkMeters,
-        numItineraries: Math.min(topK, 5),
-      });
-      transitousUsed = itineraries.length > 0;
-      for (const item of itineraries) {
-        options.push(
-          buildOption({
-            trip: item.trip,
-            origin: from,
-            destination: to,
-            walkMetersOrigin: 0,
-            walkMetersDestination: 0,
-            source: "transitous",
-            includeWalkInTransit: true,
-          }),
-        );
-      }
-      if (transitousUsed) {
-        warnings.push("Multimodale opties toegevoegd via Transitous.");
-      }
-    } catch (error) {
-      warnings.push(
-        `Transitous niet beschikbaar: ${error instanceof Error ? error.message : String(error)}`,
+      }),
+    }),
+  );
+
+  const options: RankedOption[] = [];
+  let queriedCombinations = combos.length;
+
+  for (const { originHub, destHub, trips } of comboResults) {
+    for (const trip of trips) {
+      options.push(
+        buildOption({
+          trip,
+          fromHub: originHub,
+          toHub: destHub,
+          origin: from,
+          destination: to,
+          walkMetersOrigin: originHub.distanceMeters,
+          walkMetersDestination: destHub.distanceMeters,
+          source: "nearby_combo",
+          includeWalkInTransit: false,
+        }),
       );
+    }
+  }
+
+  let transitousUsed = false;
+  if (transitousPromise) {
+    queriedCombinations += 1;
+    const { itineraries, error } = await transitousPromise;
+    if (error) {
+      warnings.push(`Transitous niet beschikbaar: ${error}`);
+    }
+    transitousUsed = itineraries.length > 0;
+    for (const item of itineraries) {
+      options.push(
+        buildOption({
+          trip: item.trip,
+          origin: from,
+          destination: to,
+          walkMetersOrigin: 0,
+          walkMetersDestination: 0,
+          source: "transitous",
+          includeWalkInTransit: true,
+        }),
+      );
+    }
+    if (transitousUsed) {
+      warnings.push("Multimodale opties toegevoegd via Transitous.");
     }
   }
 
@@ -502,7 +442,6 @@ export async function planRoute(
     options: ranked,
     queriedCombinations,
     warnings,
-    doorToDoorAvailable,
     transitousUsed,
   };
 }
@@ -538,7 +477,6 @@ export type PublicPlanResult = {
   debug: {
     queriedCombinations: number;
     warnings: string[];
-    doorToDoorAvailable: boolean;
     transitousUsed: boolean;
     nearbyFrom: Array<{
       code: string;
@@ -597,7 +535,6 @@ export function toPublicPlanResult(result: PlanResult): PublicPlanResult {
     debug: {
       queriedCombinations: result.queriedCombinations,
       warnings: result.warnings,
-      doorToDoorAvailable: result.doorToDoorAvailable,
       transitousUsed: result.transitousUsed,
       nearbyFrom: result.nearbyFrom.map((h) => ({
         code: h.code,

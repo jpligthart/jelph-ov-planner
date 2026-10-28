@@ -19,7 +19,7 @@ export type RankedOption = {
   notes: string[];
   legs: NsTrip["legs"];
   trip: NsTrip;
-  source: "baseline" | "nearby_combo" | "transitous";
+  source: "nearby_combo" | "transitous";
 };
 
 function tripSignature(trip: NsTrip): string {

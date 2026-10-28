@@ -132,7 +132,7 @@ async function cmdPlan(args: string[]): Promise<void> {
 
   // Technical details for CLI operators only.
   console.error(
-    `[debug] queries=${publicResult.debug.queriedCombinations} transitous=${publicResult.debug.transitousUsed} d2d=${publicResult.debug.doorToDoorAvailable}`,
+    `[debug] queries=${publicResult.debug.queriedCombinations} transitous=${publicResult.debug.transitousUsed}`,
   );
   if (publicResult.debug.warnings.length > 0) {
     console.error(`[debug] ${publicResult.debug.warnings.join(" | ")}`);

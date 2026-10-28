@@ -17,6 +17,9 @@ export type TripLegSummary = {
   cancelled?: boolean;
   /** Leg distance in meters when the source provides it (walk legs). */
   distanceMeters?: number;
+  /** Platform/track at the boarding and alighting stop, when known. */
+  originTrack?: string;
+  destinationTrack?: string;
 };
 
 export type NsTrip = {

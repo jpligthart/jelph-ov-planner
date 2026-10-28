@@ -17,6 +17,8 @@ export type PlanLeg = {
   modality?: string;
   cancelled?: boolean;
   distanceMeters?: number;
+  originTrack?: string;
+  destinationTrack?: string;
 };
 
 export type PlanOption = {

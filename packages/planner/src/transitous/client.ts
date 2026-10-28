@@ -1,4 +1,5 @@
 import type { NsTrip, TripLegSummary } from "../ns/types.js";
+import { WALK_METERS_PER_MINUTE } from "../planner/geo.js";
 
 const DEFAULT_BASE = "https://api.transitous.org";
 const USER_AGENT = "JelphOVPlanner/0.3.0 (+https://jelph.nl)";
@@ -31,6 +32,8 @@ type RawPlace = {
   departure?: string;
   scheduledArrival?: string;
   scheduledDeparture?: string;
+  track?: string;
+  scheduledTrack?: string;
 };
 
 type RawLeg = {
@@ -85,6 +88,8 @@ function mapLeg(leg: RawLeg): TripLegSummary {
       typeof leg.distance === "number" && Number.isFinite(leg.distance)
         ? Math.round(leg.distance)
         : undefined,
+    originTrack: leg.from?.track ?? leg.from?.scheduledTrack,
+    destinationTrack: leg.to?.track ?? leg.to?.scheduledTrack,
   };
 }
 
@@ -156,7 +161,13 @@ export class TransitousClient {
       String(query.numItineraries ?? 5),
     );
     if (query.maxWalkMeters) {
-      url.searchParams.set("maxWalkDistance", String(query.maxWalkMeters));
+      // MOTIS limits first/last-mile walking by time; it then considers every
+      // stop reachable within that time, not just the one nearest the coords.
+      const seconds = String(
+        Math.round((query.maxWalkMeters / WALK_METERS_PER_MINUTE) * 60),
+      );
+      url.searchParams.set("maxPreTransitTime", seconds);
+      url.searchParams.set("maxPostTransitTime", seconds);
     }
     if (query.dateTime) {
       // MOTIS accepts ISO-8601 timestamps.
