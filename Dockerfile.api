@@ -25,5 +25,6 @@ COPY --from=build /app/package.json ./
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/packages/planner ./packages/planner
 COPY --from=build /app/apps/api ./apps/api
+USER node
 EXPOSE 3000
 CMD ["npm", "run", "start", "-w", "@jelph/api"]

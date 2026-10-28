@@ -7,7 +7,6 @@ loadEnv({
   path: [".env", fileURLToPath(new URL("../../../.env", import.meta.url))],
   quiet: true,
 });
-import cors from "@fastify/cors";
 import Fastify, { type onRequestHookHandler } from "fastify";
 import {
   NsApiError,
@@ -23,9 +22,9 @@ import { registerAuth } from "./auth.js";
 import { RequestBudget, limitFromEnv } from "./budget.js";
 
 const PlanBodySchema = z.object({
-  from: z.string().min(1),
-  to: z.string().min(1),
-  dateTime: z.string().optional(),
+  from: z.string().min(1).max(300),
+  to: z.string().min(1).max(300),
+  dateTime: z.string().max(64).optional(),
   searchForArrival: z.boolean().optional(),
   maxWalkMeters: z.number().int().positive().max(5000).optional(),
   maxNearby: z.number().int().positive().max(5).optional(),
@@ -33,7 +32,7 @@ const PlanBodySchema = z.object({
 });
 
 const SearchQuerySchema = z.object({
-  q: z.string().min(1),
+  q: z.string().min(1).max(200),
   limit: z.coerce.number().int().positive().max(50).optional(),
 });
 
@@ -77,10 +76,6 @@ function withBudget(budget: RequestBudget): onRequestHookHandler {
 
 const app = Fastify({
   logger: true,
-});
-
-await app.register(cors, {
-  origin: true,
 });
 
 app.get("/health", async () => ({ ok: true }));

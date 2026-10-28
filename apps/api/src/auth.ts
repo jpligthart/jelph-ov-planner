@@ -140,13 +140,15 @@ export async function registerAuth(app: FastifyInstance): Promise<void> {
     ].join("; ");
   }
 
-  const publicPaths = new Set(["/api/login", "/api/logout", "/api/me"]);
+  const publicRoutes = new Set(["/health", "/api/login", "/api/logout", "/api/me"]);
 
+  // Deny by default. Matches the route Fastify resolved, not the raw URL:
+  // percent-encoded paths such as /%61pi/plan reach the same route.
   // Runs before route-level hooks, so anonymous requests never touch the
   // request budget or the upstream APIs.
   app.addHook("onRequest", async (request, reply) => {
-    const path = request.url.split("?")[0]!;
-    if (!path.startsWith("/api/") || publicPaths.has(path)) return;
+    const route = request.routeOptions.url;
+    if (route === undefined || publicRoutes.has(route)) return; // 404 or public
     if (!sessionUser(request)) {
       return reply.code(401).send({ error: "Log eerst in." });
     }
