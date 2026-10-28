@@ -789,8 +789,9 @@ button {
   color: var(--muted);
 }
 
+/* Same mode colour as the chips and timeline in the results. */
 .mode-chip-toggle.is-on svg {
-  color: var(--primary);
+  color: var(--mode);
 }
 
 .mode-chip-toggle:not(.is-on) {
