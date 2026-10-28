@@ -38,6 +38,7 @@ import {
   SearchIcon,
   SwapIcon,
 } from "./icons";
+import { Logo } from "./Logo";
 import { OptionCard } from "./OptionCard";
 import { PlaceField } from "./PlaceField";
 import {
@@ -100,7 +101,7 @@ function edgeTime(
   return times.length ? agg(...times) : undefined;
 }
 
-export function App() {
+export function App({ onLogout }: { onLogout?: () => void }) {
   const isMobile = useMediaQuery(MOBILE_QUERY);
 
   const [from, setFrom] = useState("");
@@ -293,15 +294,15 @@ export function App() {
   return (
     <div className="app">
       <header className="topbar">
-        <a className="logo" href="/" aria-label="Jelph OV Planner, home">
-          <span className="logo-mark" aria-hidden="true">
-            <span />
-          </span>
-          <span className="logo-text">
-            Jelph <strong>OV</strong>
-          </span>
-        </a>
-        <span className="topbar-tag">Deur tot deur, slim gepland</span>
+        <Logo />
+        <div className="topbar-end">
+          <span className="topbar-tag">Deur tot deur, slim gepland</span>
+          {onLogout ? (
+            <button type="button" className="link-button logout" onClick={onLogout}>
+              Uitloggen
+            </button>
+          ) : null}
+        </div>
       </header>
 
       <main className="layout">

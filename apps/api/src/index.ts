@@ -19,6 +19,7 @@ import {
   toPublicPlanResult,
 } from "@jelph/planner";
 import { z } from "zod";
+import { registerAuth } from "./auth.js";
 import { RequestBudget, limitFromEnv } from "./budget.js";
 
 const PlanBodySchema = z.object({
@@ -84,11 +85,7 @@ await app.register(cors, {
 
 app.get("/health", async () => ({ ok: true }));
 
-/** Auth stub — replace with real login later. */
-app.get("/api/me", async () => ({
-  user: null as null | { id: string; email: string },
-  auth: "disabled" as const,
-}));
+await registerAuth(app);
 
 app.get("/api/stations", { onRequest: withBudget(searchBudget) }, async (request, reply) => {
   const parsed = SearchQuerySchema.safeParse(request.query);

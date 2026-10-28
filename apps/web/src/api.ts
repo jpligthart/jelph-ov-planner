@@ -55,7 +55,11 @@ export type PlanRequest = {
   topK?: number;
 };
 
+/** Fired when the API says the session is missing or expired. */
+export const AUTH_REQUIRED_EVENT = "jelph:auth-required";
+
 async function readError(response: Response): Promise<string> {
+  if (response.status === 401) window.dispatchEvent(new Event(AUTH_REQUIRED_EVENT));
   try {
     const data = (await response.json()) as { error?: string };
     if (data.error) return data.error;
@@ -83,4 +87,28 @@ export async function searchPlaces(query: string, limit = 8): Promise<PlaceHit[]
   if (!response.ok) throw new Error(await readError(response));
   const data = (await response.json()) as { places: PlaceHit[] };
   return data.places ?? [];
+}
+
+export type Me = {
+  user: { name: string } | null;
+  auth: "enabled" | "disabled";
+};
+
+export async function fetchMe(): Promise<Me> {
+  const response = await fetch("/api/me");
+  if (!response.ok) throw new Error(await readError(response));
+  return (await response.json()) as Me;
+}
+
+export async function login(username: string, password: string): Promise<void> {
+  const response = await fetch("/api/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password }),
+  });
+  if (!response.ok) throw new Error(await readError(response));
+}
+
+export async function logout(): Promise<void> {
+  await fetch("/api/logout", { method: "POST" });
 }

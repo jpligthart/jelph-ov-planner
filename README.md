@@ -76,7 +76,8 @@ Intern: `PlanResult` (incl. `warnings` / debug). Naar buiten via API: `toPublicP
 
 - `NS_API_KEY` alleen server-side (API-env) — **niet** in de browser.
 - Web → API → planner.
-- Auth is een stub (`GET /api/me`); later om de API heen, niet in de planner.
+- Login om `/api/*` heen (`apps/api/src/auth.ts`), niet in de planner. Gebruikers in `AUTH_USERS`, sessie als ondertekende cookie (90 dagen).
+- Gedeeld request-budget per 5 minuten beschermt de NS-quota (`apps/api/src/budget.ts`).
 
 ## Setup
 
@@ -110,17 +111,42 @@ Open http://127.0.0.1:5173
 docker compose up --build -d
 ```
 
-App: http://localhost:8080  
+App: http://localhost:8080 (alleen vanaf de machine zelf)  
 API health via nginx: http://localhost:8080/health
 
 `NS_API_KEY` komt uit `.env` alleen in de `api`-service.
+
+### Live op een VM (nginx + HTTPS + login)
+
+1. **Gebruikers aanmaken** — per persoon een regel voor `AUTH_USERS`:
+
+   ```sh
+   docker compose build api
+   docker compose run --rm api node apps/api/dist/hash-password.js jp
+   ```
+
+   Zet de entries in `.env`, komma-gescheiden: `AUTH_USERS=jp:scrypt...,zoon:scrypt...`
+
+2. **Secret** — `AUTH_SECRET=` met de uitvoer van `openssl rand -base64 32`.
+
+3. **Starten** — `docker compose up --build -d`. Zonder `AUTH_USERS` weigert de API te starten.
+
+4. **nginx op de VM** — zie [`deploy/host-nginx.conf`](deploy/host-nginx.conf), daarna `certbot --nginx`. De container luistert alleen op `127.0.0.1:8080`, dus alles loopt via HTTPS.
+
+Beheer:
+
+- **Iemand toevoegen / wachtwoord wijzigen / verwijderen** — `AUTH_USERS` aanpassen en `docker compose up -d` (herstart de API). Verwijderen of een nieuw wachtwoord beëindigt ook bestaande sessies van die persoon.
+- **Iedereen uitloggen** — nieuw `AUTH_SECRET` en herstarten.
+- **Limieten** — `PLAN_LIMIT_PER_5_MIN` / `SEARCH_LIMIT_PER_5_MIN` (zie `.env.example`).
 
 ## API
 
 | Method | Path | Notes |
 |--------|------|--------|
 | GET | `/health` | Liveness |
-| GET | `/api/me` | Auth stub (`user: null`) |
+| GET | `/api/me` | Ingelogde gebruiker of `user: null` (verlengt de sessie) |
+| POST | `/api/login` | Body: `{ username, password }` — zet de sessie-cookie |
+| POST | `/api/logout` | Wist de sessie-cookie |
 | GET | `/api/places?q=` | Adres / halte / station autocomplete (NS Places) |
 | GET | `/api/stations?q=` | Station search |
 | POST | `/api/plan` | Body: `{ from, to, dateTime?, searchForArrival?, maxWalkMeters?, maxNearby?, topK? }` — `from`/`to` mag adres, halte, station of `lat,lng` zijn |
@@ -135,7 +161,7 @@ NsApp-keys geven typisch `API_KEY_NOT_ALLOWED_TO_PLAN_DOOR_TO_DOOR`; Transitous 
 
 Uitzetten met `TRANSITOUS_ENABLED=false` indien nodig.
 
-Login kan later om `/api/*` heen zonder de planner-package aan te passen.
+Alle `/api/*`-routes behalve login/logout/me vereisen een sessie (anders `401`).
 
 ## CLI & MCP (preliminary)
 

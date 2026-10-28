@@ -183,6 +183,55 @@ button {
   font-size: 0.85rem;
 }
 
+.topbar-end {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.logout {
+  font-size: 0.85rem;
+}
+
+/* ---------- Login ---------- */
+.login {
+  flex: 1;
+  display: grid;
+  place-items: start center;
+  padding: 2.5rem 1rem;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 380px;
+  display: grid;
+  gap: 1rem;
+  padding: 1.5rem;
+  box-shadow: var(--shadow);
+}
+
+.login-card h1 {
+  margin: 0;
+  font-size: 1.35rem;
+}
+
+.login-card .notice {
+  margin-bottom: 0;
+}
+
+.login-field {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+
+.login-field input {
+  width: 100%;
+  font-size: 1rem;
+}
+
 .layout {
   flex: 1;
   width: 100%;
