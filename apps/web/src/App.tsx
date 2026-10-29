@@ -37,7 +37,7 @@ import {
   CloseIcon,
   FilterIcon,
   HistoryIcon,
-  InfoIcon,
+  RefreshIcon,
   SearchIcon,
   SwapIcon,
 } from "./icons";
@@ -53,6 +53,7 @@ import {
   type RecentTrip,
 } from "./storage";
 import { TimePicker } from "./TimePicker";
+import { UserMenu } from "./UserMenu";
 import {
   choiceDate,
   defaultChoice,
@@ -72,6 +73,9 @@ function useMediaQuery(query: string): boolean {
   }, [query]);
   return matches;
 }
+
+/** How far ahead delays and platform changes are known. */
+const LIVE_WINDOW_MS = 3 * 60 * 60 * 1000;
 
 type Search = {
   from: string;
@@ -106,7 +110,7 @@ function edgeTime(
   return times.length ? agg(...times) : undefined;
 }
 
-export function App({ onLogout }: { onLogout?: () => void }) {
+export function App({ user, onLogout }: { user?: string; onLogout?: () => void }) {
   const isMobile = useMediaQuery(MOBILE_QUERY);
 
   const [from, setFrom] = useState("");
@@ -310,21 +314,7 @@ export function App({ onLogout }: { onLogout?: () => void }) {
         <Logo />
         <div className="topbar-end">
           <span className="topbar-tag">Deur tot deur, slim gepland</span>
-          <button
-            type="button"
-            className="link-button about-trigger"
-            onClick={() => setAboutOpen(true)}
-            aria-haspopup="dialog"
-            aria-expanded={aboutOpen}
-          >
-            <InfoIcon size={16} />
-            Over
-          </button>
-          {onLogout ? (
-            <button type="button" className="link-button logout" onClick={onLogout}>
-              Uitloggen
-            </button>
-          ) : null}
+          <UserMenu user={user} onAbout={() => setAboutOpen(true)} onLogout={onLogout} />
         </div>
       </header>
 
@@ -482,16 +472,21 @@ export function App({ onLogout }: { onLogout?: () => void }) {
                   )}
                   {searched ? (
                     <p className="results-sub">
-                      {describeChoice(searched.choice)} · bijgewerkt{" "}
-                      {formatClock(new Date(searched.updatedAt))}{" "}
-                      <button
-                        type="button"
-                        className="link-button results-refresh"
-                        onClick={refresh}
-                        disabled={loading}
-                      >
-                        Vernieuwen
-                      </button>
+                      {describeChoice(searched.choice)}
+                      {/* Real-time data only exists for the next hours. */}
+                      {searched.at - Date.now() < LIVE_WINDOW_MS ? (
+                        <button
+                          type="button"
+                          className="refresh-button"
+                          onClick={refresh}
+                          disabled={loading}
+                          title="Opnieuw zoeken voor actuele vertragingen"
+                          aria-label={`Bijgewerkt om ${formatClock(new Date(searched.updatedAt))}, vernieuwen`}
+                        >
+                          <RefreshIcon size={14} />
+                          {formatClock(new Date(searched.updatedAt))}
+                        </button>
+                      ) : null}
                     </p>
                   ) : null}
                 </div>

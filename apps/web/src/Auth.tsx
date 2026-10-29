@@ -6,7 +6,7 @@ import { Logo } from "./Logo";
 type State =
   | { kind: "checking" }
   | { kind: "login" }
-  | { kind: "in"; onLogout?: () => void };
+  | { kind: "in"; user?: string; onLogout?: () => void };
 
 /** Shows the planner once logged in (or when the API has login disabled). */
 export function AuthGate() {
@@ -16,7 +16,7 @@ export function AuthGate() {
     try {
       const me = await fetchMe();
       if (me.auth === "disabled") setState({ kind: "in" });
-      else if (me.user) setState({ kind: "in", onLogout: signOut });
+      else if (me.user) setState({ kind: "in", user: me.user.name, onLogout: signOut });
       else setState({ kind: "login" });
     } catch {
       setState({ kind: "login" });
@@ -37,7 +37,7 @@ export function AuthGate() {
 
   if (state.kind === "checking") return null;
   if (state.kind === "login") return <Login onSuccess={() => void check()} />;
-  return <App onLogout={state.onLogout} />;
+  return <App user={state.user} onLogout={state.onLogout} />;
 }
 
 function Login({ onSuccess }: { onSuccess: () => void }) {
