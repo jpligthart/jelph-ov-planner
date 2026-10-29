@@ -84,6 +84,8 @@ function mapLeg(leg: RawLeg): TripLegSummary {
       leg.scheduledEndTime ??
       leg.to?.arrival ??
       leg.to?.scheduledArrival,
+    scheduledDeparture: leg.scheduledStartTime ?? leg.from?.scheduledDeparture,
+    scheduledArrival: leg.scheduledEndTime ?? leg.to?.scheduledArrival,
     modality: modalityLabel(leg),
     cancelled: false,
     distanceMeters:
@@ -92,6 +94,8 @@ function mapLeg(leg: RawLeg): TripLegSummary {
         : undefined,
     originTrack: leg.from?.track ?? leg.from?.scheduledTrack,
     destinationTrack: leg.to?.track ?? leg.to?.scheduledTrack,
+    scheduledOriginTrack: leg.from?.scheduledTrack,
+    scheduledDestinationTrack: leg.to?.scheduledTrack,
     originLat: leg.from?.lat,
     originLng: leg.from?.lon,
     destinationLat: leg.to?.lat,

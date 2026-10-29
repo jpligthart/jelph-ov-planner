@@ -11,8 +11,12 @@ export type Station = {
 export type TripLegSummary = {
   origin: string;
   destination: string;
+  /** Expected times: real-time when known, else the timetable. */
   plannedDeparture?: string;
   plannedArrival?: string;
+  /** Timetable times, to tell a delay apart from a trip that runs on time. */
+  scheduledDeparture?: string;
+  scheduledArrival?: string;
   modality?: string;
   cancelled?: boolean;
   /** Leg distance in meters when the source provides it (walk legs). */
@@ -20,6 +24,9 @@ export type TripLegSummary = {
   /** Platform/track at the boarding and alighting stop, when known. */
   originTrack?: string;
   destinationTrack?: string;
+  /** Tracks per the timetable, to spot a platform change. */
+  scheduledOriginTrack?: string;
+  scheduledDestinationTrack?: string;
   /** Stop coordinates, when the source provides them. */
   originLat?: number;
   originLng?: number;

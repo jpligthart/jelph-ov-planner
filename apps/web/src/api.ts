@@ -12,13 +12,19 @@ export type PlaceHit = {
 export type PlanLeg = {
   origin: string;
   destination: string;
+  /** Expected times: real-time when known, else the timetable. */
   plannedDeparture?: string;
   plannedArrival?: string;
+  /** Timetable times; differ from the expected ones on a delay. */
+  scheduledDeparture?: string;
+  scheduledArrival?: string;
   modality?: string;
   cancelled?: boolean;
   distanceMeters?: number;
   originTrack?: string;
   destinationTrack?: string;
+  scheduledOriginTrack?: string;
+  scheduledDestinationTrack?: string;
   originLat?: number;
   originLng?: number;
   destinationLat?: number;

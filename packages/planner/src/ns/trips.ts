@@ -91,6 +91,8 @@ function mapLeg(leg: RawLeg): TripLegSummary {
     plannedDeparture: leg.origin?.actualDateTime ?? leg.origin?.plannedDateTime,
     plannedArrival:
       leg.destination?.actualDateTime ?? leg.destination?.plannedDateTime,
+    scheduledDeparture: leg.origin?.plannedDateTime,
+    scheduledArrival: leg.destination?.plannedDateTime,
     modality:
       leg.product?.longCategoryName ??
       leg.product?.shortCategoryName ??
@@ -102,6 +104,8 @@ function mapLeg(leg: RawLeg): TripLegSummary {
     originTrack: leg.origin?.actualTrack ?? leg.origin?.plannedTrack,
     destinationTrack:
       leg.destination?.actualTrack ?? leg.destination?.plannedTrack,
+    scheduledOriginTrack: leg.origin?.plannedTrack,
+    scheduledDestinationTrack: leg.destination?.plannedTrack,
     originLat: leg.origin?.lat,
     originLng: leg.origin?.lng,
     destinationLat: leg.destination?.lat,

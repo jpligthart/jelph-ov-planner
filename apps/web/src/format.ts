@@ -195,7 +195,27 @@ export type Step = {
   cancelled?: boolean;
   originTrack?: string;
   destinationTrack?: string;
+  /** Minutes behind the timetable at either end; 0 when on time. */
+  departDelay: number;
+  arriveDelay: number;
+  /** Timetable track, only when the vehicle uses another one. */
+  originTrackWas?: string;
+  destinationTrackWas?: string;
 };
+
+/**
+ * Minutes a time runs behind the timetable; 0 when on time, early or unknown.
+ * Early runs are left out, as in the NS app: you still have to be there.
+ */
+export function delayMinutes(expected?: string, scheduled?: string): number {
+  if (!expected || !scheduled) return 0;
+  const diff = Math.round((Date.parse(expected) - Date.parse(scheduled)) / 60000);
+  return Number.isFinite(diff) && diff > 0 ? diff : 0;
+}
+
+function changedTrack(track?: string, scheduled?: string): string | undefined {
+  return track && scheduled && track !== scheduled ? scheduled : undefined;
+}
 
 /** Door-to-door list of steps, including walks to/from nearby hubs. */
 export function buildSteps(option: PlanOption, fromLabel: string, toLabel: string): Step[] {
@@ -211,6 +231,8 @@ export function buildSteps(option: PlanOption, fromLabel: string, toLabel: strin
       end: shift(option.departure, 0),
       minutes: option.walkMinutesOrigin,
       meters: option.walkMetersOrigin,
+      departDelay: 0,
+      arriveDelay: 0,
     });
   }
 
@@ -218,6 +240,8 @@ export function buildSteps(option: PlanOption, fromLabel: string, toLabel: strin
     const kind = modeKind(leg.modality);
     const minutes = legMinutes(leg);
     if (kind === "walk" && minutes === 0 && !leg.distanceMeters) continue;
+    // A walk shifts with the vehicle it leads to; only vehicles run late.
+    const vehicle = kind !== "walk";
     steps.push({
       kind,
       label: modalityNl(leg.modality),
@@ -230,6 +254,12 @@ export function buildSteps(option: PlanOption, fromLabel: string, toLabel: strin
       cancelled: leg.cancelled,
       originTrack: leg.originTrack,
       destinationTrack: leg.destinationTrack,
+      departDelay: vehicle ? delayMinutes(leg.plannedDeparture, leg.scheduledDeparture) : 0,
+      arriveDelay: vehicle ? delayMinutes(leg.plannedArrival, leg.scheduledArrival) : 0,
+      originTrackWas: vehicle ? changedTrack(leg.originTrack, leg.scheduledOriginTrack) : undefined,
+      destinationTrackWas: vehicle
+        ? changedTrack(leg.destinationTrack, leg.scheduledDestinationTrack)
+        : undefined,
     });
   }
 
@@ -243,6 +273,8 @@ export function buildSteps(option: PlanOption, fromLabel: string, toLabel: strin
       end: doorArrival(option),
       minutes: option.walkMinutesDestination,
       meters: option.walkMetersDestination,
+      departDelay: 0,
+      arriveDelay: 0,
     });
   }
 
@@ -269,8 +301,13 @@ export type ItineraryItem =
       name: string;
       /** What kind of stop this is, e.g. "Treinstation · spoor 2". */
       detail?: string;
+      /** Timetable track, when the vehicle uses another one. */
+      trackWas?: string;
       arrive?: Date;
       depart?: Date;
+      /** Minutes behind the timetable for arrive / depart. */
+      arriveDelay: number;
+      departDelay: number;
       role: "start" | "via" | "end";
     }
   | { type: "move"; step: Step; toward?: string }
@@ -299,16 +336,22 @@ const isVehicle = (step?: Step): step is Step =>
  * bus stop, "Helmond" the railway station), so say which one a stop is,
  * judged by the vehicle you board there, else the one you got off.
  */
-function stopDetail(before?: Step, after?: Step): string | undefined {
-  const [vehicle, track] = isVehicle(after)
-    ? [after, after.originTrack]
+function stopDetail(
+  before?: Step,
+  after?: Step,
+): { detail?: string; trackWas?: string } {
+  const [vehicle, track, trackWas] = isVehicle(after)
+    ? [after, after.originTrack, after.originTrackWas]
     : isVehicle(before)
-      ? [before, before.destinationTrack]
-      : [undefined, undefined];
+      ? [before, before.destinationTrack, before.destinationTrackWas]
+      : [undefined, undefined, undefined];
   const label = vehicle ? STOP_LABELS[vehicle.kind] : undefined;
-  if (!label) return undefined;
-  if (!track) return label;
-  return `${label} · ${vehicle!.kind === "train" ? "spoor" : "perron"} ${track}`;
+  if (!label) return {};
+  if (!track) return { detail: label };
+  return {
+    detail: `${label} · ${vehicle!.kind === "train" ? "spoor" : "perron"} ${track}`,
+    trackWas,
+  };
 }
 
 /** Where a walk leads, when it takes you to a vehicle: "naar spoor 2". */
@@ -340,8 +383,10 @@ export function buildItinerary(steps: Step[]): ItineraryItem[] {
     {
       type: "stop",
       name: kept[0].origin,
-      detail: stopDetail(undefined, kept[0]),
+      ...stopDetail(undefined, kept[0]),
       depart: kept[0].start,
+      arriveDelay: 0,
+      departDelay: kept[0].departDelay,
       role: "start",
     },
   ];
@@ -360,8 +405,10 @@ export function buildItinerary(steps: Step[]): ItineraryItem[] {
       items.push({
         type: "stop",
         name: step.destination,
-        detail: stopDetail(step, undefined),
+        ...stopDetail(step, undefined),
         arrive: step.end,
+        arriveDelay: step.arriveDelay,
+        departDelay: 0,
         role: "end",
       });
       return;
@@ -371,9 +418,11 @@ export function buildItinerary(steps: Step[]): ItineraryItem[] {
     items.push({
       type: "stop",
       name: step.destination,
-      detail: stopDetail(step, next),
+      ...stopDetail(step, next),
       arrive: step.end,
       depart: next.start,
+      arriveDelay: step.arriveDelay,
+      departDelay: next.departDelay,
       role: "via",
     });
     // Only a transfer onto a vehicle, after riding one, can be missed.

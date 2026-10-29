@@ -74,19 +74,55 @@ function Timeline({ steps, start, end }: { steps: Step[]; start?: Date; end?: Da
   );
 }
 
-function StopTime({ arrive, depart }: { arrive?: Date; depart?: Date }) {
+/**
+ * A time as the NS app shows it: the timetable time, plus how many minutes
+ * late it runs ("10:15 +4"). `at` is the expected time.
+ */
+function Clock({ at, delay, label }: { at?: Date; delay: number; label?: string }) {
+  const prefix = label ? `${label} ` : "";
+  if (!at || delay <= 0) {
+    return <span aria-label={label ? `${prefix}${formatClock(at)}` : undefined}>{formatClock(at)}</span>;
+  }
+  const scheduled = new Date(at.getTime() - delay * 60000);
+  return (
+    <span
+      aria-label={`${prefix}${formatClock(scheduled)}, ${delay} min vertraagd, nu ${formatClock(at)}`}
+    >
+      {formatClock(scheduled)}
+      <span className="delay" aria-hidden="true">
+        +{delay}
+      </span>
+    </span>
+  );
+}
+
+function StopTime({
+  arrive,
+  depart,
+  arriveDelay,
+  departDelay,
+}: {
+  arrive?: Date;
+  depart?: Date;
+  arriveDelay: number;
+  departDelay: number;
+}) {
   const both = arrive && depart && formatClock(arrive) !== formatClock(depart);
   if (both) {
     return (
       <span className="it-time">
-        <span className="it-time-sub" aria-label={`aankomst ${formatClock(arrive)}`}>
-          {formatClock(arrive)}
+        <span className="it-time-sub">
+          <Clock at={arrive} delay={arriveDelay} label="aankomst" />
         </span>
-        <span aria-label={`vertrek ${formatClock(depart)}`}>{formatClock(depart)}</span>
+        <Clock at={depart} delay={departDelay} label="vertrek" />
       </span>
     );
   }
-  return <span className="it-time">{formatClock(depart ?? arrive)}</span>;
+  return (
+    <span className="it-time">
+      {depart ? <Clock at={depart} delay={departDelay} /> : <Clock at={arrive} delay={arriveDelay} />}
+    </span>
+  );
 }
 
 /** Rail paint for the piece of line belonging to an item. */
@@ -118,13 +154,23 @@ function Itinerary({ id, steps }: { id: string; steps: Step[] }) {
                 } as CSSProperties
               }
             >
-              <StopTime arrive={item.arrive} depart={item.depart} />
+              <StopTime
+                arrive={item.arrive}
+                depart={item.depart}
+                arriveDelay={item.arriveDelay}
+                departDelay={item.departDelay}
+              />
               <span className="it-rail" aria-hidden="true">
                 <span className="it-dot" />
               </span>
               <span className="it-name">
                 {item.name}
-                {item.detail ? <span className="it-kind">{item.detail}</span> : null}
+                {item.detail ? (
+                  <span className={`it-kind${item.trackWas ? " is-changed" : ""}`}>
+                    {item.detail}
+                    {item.trackWas ? ` (was ${item.trackWas})` : null}
+                  </span>
+                ) : null}
               </span>
             </li>
           );
@@ -219,6 +265,9 @@ function Alternatives({
           const arrive = alt.arrival ? new Date(alt.arrival) : undefined;
           const later =
             planned && arrive ? Math.round((arrive.getTime() - planned.getTime()) / 60000) : 0;
+          // Expected times only, delays already included: a backup is about
+          // when it really goes, and a second kind of "+" next to "later"
+          // would make the row hard to read.
           return (
             <li key={alt.id} className="alt">
               <span className="alt-times">
@@ -235,7 +284,7 @@ function Alternatives({
                   );
                 })}
               </span>
-              {later > 0 ? <span className="alt-later">+{formatDuration(later)}</span> : null}
+              {later > 0 ? <span className="alt-later">{formatDuration(later)} later</span> : null}
             </li>
           );
         })}
@@ -304,9 +353,13 @@ export function OptionCard({ option, fromLabel, toLabel, destination, badges }: 
 
         <span className="option-top">
           <span className="option-times">
-            <span className="clock">{formatClock(depart)}</span>
+            <span className="clock">
+              <Clock at={depart} delay={transit[0]?.departDelay ?? 0} label="vertrek" />
+            </span>
             <span className="time-arrow" aria-hidden="true" />
-            <span className="clock">{formatClock(arrive)}</span>
+            <span className="clock">
+              <Clock at={arrive} delay={transit[transit.length - 1]?.arriveDelay ?? 0} label="aankomst" />
+            </span>
           </span>
           <span className="option-duration">
             {formatDuration(option.totalDoorToDoorMinutes)}
