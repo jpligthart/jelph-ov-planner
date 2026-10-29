@@ -1,4 +1,4 @@
-import { DEFAULT_FILTERS, FILTER_MODES, type Filters } from "./filters";
+import { DEFAULT_FILTERS, FILTER_MODES, WALK_CHOICES, type Filters } from "./filters";
 
 const FILTERS_KEY = "jelph.filters.v4";
 const RECENT_KEY = "jelph.recent.v1";
@@ -29,9 +29,15 @@ export function loadFilters(): Filters {
   const modes = Array.isArray(saved.modes)
     ? FILTER_MODES.filter((m) => saved.modes?.includes(m))
     : DEFAULT_FILTERS.modes;
+  // A walk limit that is no longer offered (e.g. the old 10 min) falls back
+  // to the default, so one of the choices is always selected.
+  const maxWalk = WALK_CHOICES.some((c) => c.value === saved.maxWalk)
+    ? saved.maxWalk
+    : DEFAULT_FILTERS.maxWalk;
   return {
     ...DEFAULT_FILTERS,
     ...saved,
+    maxWalk: maxWalk ?? null,
     modes: modes.length > 0 ? modes : DEFAULT_FILTERS.modes,
   };
 }

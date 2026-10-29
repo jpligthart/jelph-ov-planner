@@ -129,6 +129,11 @@ function walkLegMeters(leg: PlanLeg): number {
   return leg.distanceMeters ?? legMinutes(leg) * WALK_METERS_PER_MINUTE;
 }
 
+/** Walking all the way: no vehicle, no timetable. */
+export function isWalkOnly(option: PlanOption): boolean {
+  return option.legs.every((leg) => modeKind(leg.modality) === "walk");
+}
+
 /** Total walking distance, including first/last mile and walk legs. */
 export function walkMetersTotal(option: PlanOption): number {
   let meters = option.walkMetersOrigin + option.walkMetersDestination;

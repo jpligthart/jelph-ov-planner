@@ -24,6 +24,8 @@ export type TransitousItinerary = {
   startTime?: string;
   endTime?: string;
   trip: NsTrip;
+  /** Walking all the way, no transit: can start at any time. */
+  direct?: boolean;
 };
 
 type RawPlace = {
@@ -103,14 +105,18 @@ function mapLeg(leg: RawLeg): TripLegSummary {
   };
 }
 
-function mapItinerary(raw: RawItinerary, index: number): TransitousItinerary | null {
+function mapItinerary(
+  raw: RawItinerary,
+  fallbackId: string,
+  direct = false,
+): TransitousItinerary | null {
   const legs = Array.isArray(raw.legs) ? raw.legs.map(mapLeg) : [];
   if (legs.length === 0) return null;
 
   const durationSeconds = Number(raw.duration ?? 0);
   const durationMinutes = Math.max(1, Math.round(durationSeconds / 60));
   const transfers = Number(raw.transfers ?? 0);
-  const id = String(raw.id ?? `transitous-${index}`);
+  const id = String(raw.id ?? fallbackId);
 
   const trip: NsTrip = {
     uid: id,
@@ -118,7 +124,7 @@ function mapItinerary(raw: RawItinerary, index: number): TransitousItinerary | n
     actualDurationInMinutes: durationMinutes,
     transfers: Number.isFinite(transfers) ? transfers : 0,
     status: "NORMAL",
-    type: "TRANSITOUS",
+    type: direct ? "TRANSITOUS_DIRECT" : "TRANSITOUS",
     legs,
     raw,
   };
@@ -130,6 +136,7 @@ function mapItinerary(raw: RawItinerary, index: number): TransitousItinerary | n
     startTime: raw.startTime ?? legs[0]?.plannedDeparture,
     endTime: raw.endTime ?? legs[legs.length - 1]?.plannedArrival,
     trip,
+    direct: direct || undefined,
   };
 }
 
@@ -178,6 +185,8 @@ export class TransitousClient {
     if (startWalk) url.searchParams.set("maxPreTransitTime", walkSeconds(startWalk));
     if (query.maxWalkMeters) {
       url.searchParams.set("maxPostTransitTime", walkSeconds(query.maxWalkMeters));
+      // The walk-only route ("direct") within the same walking limit.
+      url.searchParams.set("maxDirectTime", walkSeconds(query.maxWalkMeters));
     }
     if (query.dateTime) {
       // MOTIS accepts ISO-8601 timestamps.
@@ -199,11 +208,16 @@ export class TransitousClient {
       );
     }
 
-    const json = (await response.json()) as { itineraries?: RawItinerary[] };
+    const json = (await response.json()) as {
+      itineraries?: RawItinerary[];
+      direct?: RawItinerary[];
+    };
     const list = Array.isArray(json.itineraries) ? json.itineraries : [];
-    return list
-      .map((item, index) => mapItinerary(item, index))
-      .filter((item): item is TransitousItinerary => item !== null);
+    const direct = Array.isArray(json.direct) ? json.direct : [];
+    return [
+      ...list.map((item, index) => mapItinerary(item, `transitous-${index}`)),
+      ...direct.map((item, index) => mapItinerary(item, `direct-${index}`, true)),
+    ].filter((item): item is TransitousItinerary => item !== null);
   }
 }
 

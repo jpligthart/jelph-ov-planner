@@ -28,6 +28,7 @@ import {
   formatClock,
   friendlyError,
   isCoords,
+  isWalkOnly,
   placeLabel,
 } from "./format";
 import { AboutDialog } from "./AboutDialog";
@@ -281,7 +282,11 @@ export function App({ user, onLogout }: { user?: string; onLogout?: () => void }
       });
       if (id !== requestId.current) return; // a new search took over
       const known = new Set(result.options.map(tripKey));
-      const added = data.options.filter((o) => !known.has(tripKey(o)));
+      // Walking has no timetable: another search finds the same walk again.
+      const hasWalk = result.options.some(isWalkOnly);
+      const added = data.options.filter(
+        (o) => !known.has(tripKey(o)) && !(hasWalk && isWalkOnly(o)),
+      );
       setResult({ ...result, options: [...result.options, ...added] });
       setSearched({
         ...searched,

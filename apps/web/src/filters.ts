@@ -25,8 +25,8 @@ export type Filters = {
 };
 
 export const DEFAULT_FILTERS: Filters = {
-  // About 10 minutes on foot: hides "train + 40 min walk" options.
-  maxWalk: 800,
+  // About 15 minutes on foot: hides "train + 40 min walk" options.
+  maxWalk: 1200,
   maxTransfers: null,
   modes: [...FILTER_MODES],
   sort: "departure",
@@ -43,7 +43,7 @@ export const SORT_LABELS: Record<SortKey, string> = {
 // Limit per stretch on foot, felt as time rather than meters (80 m per minute).
 export const WALK_CHOICES: Array<{ value: number | null; label: string }> = [
   { value: 400, label: "± 5 min" },
-  { value: 800, label: "± 10 min" },
+  { value: 1200, label: "± 15 min" },
   { value: null, label: "Geen limiet" },
 ];
 

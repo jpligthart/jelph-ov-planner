@@ -100,6 +100,8 @@ type Profile = {
   walk: number;
   /** A leg is cancelled or a change can't be made: the trip may not work. */
   broken: boolean;
+  /** Walking all the way: no timetable, so you can leave whenever you like. */
+  walkOnly: boolean;
 };
 
 /**
@@ -108,6 +110,14 @@ type Profile = {
  */
 function dominates(a: Profile, b: Profile): boolean {
   if (a.broken || !a.times || !b.times) return false;
+  // Walking is always an option of its own; it beats any trip that takes
+  // longer and makes you walk more anyway, whatever time that trip leaves.
+  if (b.walkOnly) return false;
+  if (a.walkOnly) {
+    const aMinutes = a.times.arrive - a.times.leave;
+    const bMinutes = b.times.arrive - b.times.leave;
+    return aMinutes <= bMinutes && a.walk <= b.walk && (aMinutes < bMinutes || a.walk < b.walk);
+  }
   if (a.times.leave < b.times.leave) return false;
   if (a.times.arrive > b.times.arrive) return false;
   if (a.walk > b.walk) return false;
@@ -136,6 +146,7 @@ export function dropDominated(options: RankedOption[]): RankedOption[] {
     times: doorTimes(option),
     walk: walkMetersOf(option),
     broken: option.legs.some((l) => l.cancelled || l.missedConnection),
+    walkOnly: option.legs.every((l) => WALK_MODALITY_RE.test(l.modality ?? "")),
   }));
   return profiles
     .filter((p) => !profiles.some((other) => other !== p && dominates(other, p)))

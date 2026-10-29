@@ -10,8 +10,9 @@ import type { NsTrip, Station, TripsQuery } from "../ns/types.js";
 import {
   TransitousClient,
   createTransitousClientFromEnv,
+  type TransitousItinerary,
 } from "../transitous/client.js";
-import { walkMinutes } from "./geo.js";
+import { haversineMeters, walkMinutes } from "./geo.js";
 import type { TransitHub } from "./hubs.js";
 import { findNearbyStations } from "./nearby.js";
 import {
@@ -314,6 +315,37 @@ async function nearbyStationHubs(
   return hubs;
 }
 
+/**
+ * Transitous returns trips for a limited time span. NS trips beyond it have
+ * no bus or tram trip to be compared with, so a detour there (walking to a
+ * station when a bus would do) would fill the list unchecked. "Eerdere/
+ * Latere reizen" fetch the next span. Without Transitous trips, keep all.
+ */
+function withinTransitousSpan(
+  options: RankedOption[],
+  itineraries: TransitousItinerary[],
+  arriveBy: boolean,
+): RankedOption[] {
+  const timed = itineraries.filter((i) => !i.direct);
+  const edges = timed
+    .map((i) => Date.parse((arriveBy ? i.endTime : i.startTime) ?? ""))
+    .filter(Number.isFinite);
+  if (edges.length === 0) return options;
+  const minute = 60_000;
+  if (arriveBy) {
+    const earliest = Math.min(...edges);
+    return options.filter((o) => {
+      if (o.source !== "nearby_combo" || !o.arrival) return true;
+      return Date.parse(o.arrival) + o.walkMinutesDestination * minute >= earliest;
+    });
+  }
+  const latest = Math.max(...edges);
+  return options.filter((o) => {
+    if (o.source !== "nearby_combo" || !o.departure) return true;
+    return Date.parse(o.departure) - o.walkMinutesOrigin * minute <= latest;
+  });
+}
+
 export async function planRoute(
   client: NsClient,
   request: PlanRequest,
@@ -363,9 +395,13 @@ export async function planRoute(
     nearbyStationHubs(client, to, { maxWalkMeters, maxNearby }),
   ]);
 
-  const combos = nearbyFromList.flatMap((originHub) =>
+  // A station further away than the destination itself is a detour, e.g.
+  // walking to Eindhoven Centraal to ride back to where you started.
+  const tripMeters = haversineMeters(from.lat, from.lng, to.lat, to.lng);
+  const withinTrip = (hub: TransitHub) => hub.distanceMeters <= tripMeters;
+  const combos = nearbyFromList.filter(withinTrip).flatMap((originHub) =>
     nearbyToList
-      .filter((destHub) => destHub.code !== originHub.code)
+      .filter((destHub) => destHub.code !== originHub.code && withinTrip(destHub))
       .map((destHub) => ({ originHub, destHub })),
   );
 
@@ -406,6 +442,7 @@ export async function planRoute(
   }
 
   let transitousUsed = false;
+  let candidates = options;
   if (transitousPromise) {
     queriedCombinations += 1;
     const { itineraries, error } = await transitousPromise;
@@ -429,9 +466,10 @@ export async function planRoute(
     if (transitousUsed) {
       warnings.push("Multimodale opties toegevoegd via Transitous.");
     }
+    candidates = withinTransitousSpan(options, itineraries, request.searchForArrival === true);
   }
 
-  const ranked = rankOptions(dropDominated(dedupeOptions(options))).slice(
+  const ranked = rankOptions(dropDominated(dedupeOptions(candidates))).slice(
     0,
     topK,
   );
