@@ -1709,12 +1709,14 @@ button {
   }
 
   .results-title {
-    flex-wrap: nowrap;
     min-width: 0;
   }
 
+  /* The destination wraps to its own line when both don't fit; a place
+     is only cut short when it is wider than the column on its own. */
   .results-title span {
     min-width: 0;
+    max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
