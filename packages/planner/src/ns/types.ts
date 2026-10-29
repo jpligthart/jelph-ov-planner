@@ -29,6 +29,8 @@ export type TripLegSummary = {
   /** Tracks per the timetable, to spot a platform change. */
   scheduledOriginTrack?: string;
   scheduledDestinationTrack?: string;
+  /** Route line as an encoded polyline, when the source provides one. */
+  geometry?: { points: string; precision: number };
   /** Stop coordinates, when the source provides them. */
   originLat?: number;
   originLng?: number;

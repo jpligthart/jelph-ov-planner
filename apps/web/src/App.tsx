@@ -584,6 +584,7 @@ export function App({ user, onLogout }: { user?: string; onLogout?: () => void }
                         option={option}
                         fromLabel={fromTitle}
                         toLabel={toTitle}
+                        origin={result.from}
                         destination={result.to}
                         badges={badges.get(option.id) ?? []}
                       />

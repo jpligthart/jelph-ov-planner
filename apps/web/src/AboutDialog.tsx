@@ -14,8 +14,13 @@ const SOURCES = [
   },
   {
     name: "OpenStreetMap contributors",
-    what: "Kaartdata (ODbL), via Transitous",
+    what: "Kaart, looproutes en straatnetwerk (ODbL)",
     href: "https://www.openstreetmap.org/copyright",
+  },
+  {
+    name: "OpenFreeMap",
+    what: "Kaarttegels voor de routekaart",
+    href: "https://openfreemap.org/",
   },
 ];
 

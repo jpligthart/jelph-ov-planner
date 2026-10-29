@@ -1435,6 +1435,49 @@ button {
   font-weight: 700;
 }
 
+/* Map of an opened trip, loaded on request. */
+.map-toggle {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0 1rem 1rem;
+}
+
+.map-toggle-button {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink-2);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.map-toggle-button:hover,
+.map-toggle-button[aria-expanded="true"] {
+  border-color: var(--line-strong);
+  color: var(--ink);
+}
+
+.trip-map {
+  height: 280px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--surface-2);
+}
+
+.trip-map.is-loading {
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
 /* Backups for the last connection, under an opened trip's itinerary. */
 .alts {
   margin: 0 1rem 1rem;

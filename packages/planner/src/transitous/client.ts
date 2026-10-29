@@ -52,6 +52,7 @@ type RawLeg = {
   distance?: number;
   routeShortName?: string;
   headsign?: string;
+  legGeometry?: { points?: string; precision?: number };
   intermediateStops?: unknown[];
 };
 
@@ -98,6 +99,9 @@ function mapLeg(leg: RawLeg): TripLegSummary {
     destinationTrack: leg.to?.track ?? leg.to?.scheduledTrack,
     scheduledOriginTrack: leg.from?.scheduledTrack,
     scheduledDestinationTrack: leg.to?.scheduledTrack,
+    geometry: leg.legGeometry?.points
+      ? { points: leg.legGeometry.points, precision: leg.legGeometry.precision ?? 6 }
+      : undefined,
     originLat: leg.from?.lat,
     originLng: leg.from?.lon,
     destinationLat: leg.to?.lat,

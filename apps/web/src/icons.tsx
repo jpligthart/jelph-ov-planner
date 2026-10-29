@@ -194,6 +194,13 @@ export const HeartIcon = (p: IconProps) => (
   </Svg>
 );
 
+export const MapIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2z" />
+    <path d="M9 4v14M15 6v14" />
+  </Svg>
+);
+
 export function ModeIcon({ kind, ...rest }: IconProps & { kind: ModeKind }) {
   switch (kind) {
     case "train":

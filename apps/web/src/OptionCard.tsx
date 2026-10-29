@@ -1,4 +1,4 @@
-import { useEffect, useId, useState, type CSSProperties } from "react";
+import { Suspense, lazy, useEffect, useId, useState, type CSSProperties } from "react";
 import { fetchAlternatives, type ConnectionAlternative, type PlanLeg, type PlanOption } from "./api";
 import { BADGE_LABELS, SEARCH_RADIUS_METERS, type Badge } from "./filters";
 import {
@@ -16,7 +16,19 @@ import {
   walkMetersTotal,
   type Step,
 } from "./format";
-import { BoltIcon, ChevronIcon, ClockIcon, ModeIcon, StarIcon, TransferIcon, WalkIcon } from "./icons";
+import {
+  BoltIcon,
+  ChevronIcon,
+  ClockIcon,
+  MapIcon,
+  ModeIcon,
+  StarIcon,
+  TransferIcon,
+  WalkIcon,
+} from "./icons";
+
+// MapLibre is large; load it only when someone asks for the map.
+const TripMap = lazy(() => import("./TripMap"));
 
 const BADGE_ICONS: Record<Badge, typeof BoltIcon> = {
   recommended: StarIcon,
@@ -29,7 +41,8 @@ type Props = {
   option: PlanOption;
   fromLabel: string;
   toLabel: string;
-  /** Where the trip ends, to look for other ways to get there. */
+  /** Where the trip starts and ends, for the map and backups. */
+  origin: { lat: number; lng: number };
   destination: { lat: number; lng: number };
   badges: Badge[];
 };
@@ -316,12 +329,13 @@ function Alternatives({
   );
 }
 
-export function OptionCard({ option, fromLabel, toLabel, destination, badges }: Props) {
+export function OptionCard({ option, fromLabel, toLabel, origin, destination, badges }: Props) {
   const connection = lastConnection(option.legs);
   // Open from the start when the last change fails: the way out is the news.
   const [open, setOpen] = useState(() => connection?.missed === true);
   const detailsId = useId();
   const [alternatives, setAlternatives] = useState<ConnectionAlternative[] | null>(null);
+  const [showMap, setShowMap] = useState(false);
 
   const steps = buildSteps(option, fromLabel, toLabel);
   const depart = doorDeparture(option);
@@ -426,6 +440,24 @@ export function OptionCard({ option, fromLabel, toLabel, destination, badges }: 
       </button>
 
       {open ? <Itinerary id={detailsId} steps={steps} /> : null}
+      {open ? (
+        <div className="map-toggle">
+          <button
+            type="button"
+            className="map-toggle-button"
+            aria-expanded={showMap}
+            onClick={() => setShowMap((v) => !v)}
+          >
+            <MapIcon size={16} />
+            {showMap ? "Verberg kaart" : "Toon op kaart"}
+          </button>
+          {showMap ? (
+            <Suspense fallback={<div className="trip-map is-loading">Kaart laden…</div>}>
+              <TripMap option={option} from={origin} to={destination} />
+            </Suspense>
+          ) : null}
+        </div>
+      ) : null}
       {open && connection && alternatives && alternatives.length > 0 ? (
         <Alternatives connection={connection} alternatives={alternatives} planned={arrive} />
       ) : null}

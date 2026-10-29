@@ -27,6 +27,8 @@ export type PlanLeg = {
   destinationTrack?: string;
   scheduledOriginTrack?: string;
   scheduledDestinationTrack?: string;
+  /** Route line as an encoded polyline (Transitous legs only). */
+  geometry?: { points: string; precision: number };
   originLat?: number;
   originLng?: number;
   destinationLat?: number;
