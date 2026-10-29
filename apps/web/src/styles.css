@@ -193,6 +193,13 @@ button {
   font-size: 0.85rem;
 }
 
+.about-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+}
+
 /* ---------- Login ---------- */
 .login {
   flex: 1;
@@ -1533,15 +1540,76 @@ button {
   color: var(--muted);
 }
 
-.foot {
-  padding: 1.5rem 1rem calc(1.5rem + env(safe-area-inset-bottom));
-  text-align: center;
-  color: var(--muted);
-  font-size: 0.8rem;
+/* ---------- About dialog ---------- */
+.about-host {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: grid;
+  place-items: end center;
+  pointer-events: auto;
 }
 
-.foot a {
-  color: inherit;
+.about-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgb(15 23 42 / 0.45);
+}
+
+.about-sheet {
+  position: relative;
+  z-index: 1;
+  width: min(440px, 100%);
+  max-height: min(88dvh, 560px);
+  margin: 0;
+  border-radius: var(--radius) var(--radius) 0 0;
+  overflow: auto;
+  padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+  box-shadow: var(--shadow-lg);
+}
+
+/* Filters hide .sheet-close on desktop; About always needs it. */
+.about-sheet .sheet-close {
+  display: inline-flex;
+}
+
+.about-body {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.25rem 0 0.5rem;
+  color: var(--ink-2);
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.about-body h3 {
+  margin: 0.5rem 0 0;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.about-body p {
+  margin: 0;
+}
+
+.about-body a {
+  color: var(--primary);
+  font-weight: 600;
+}
+
+@media (min-width: 960px) {
+  .about-host {
+    place-items: center;
+    padding: 1.5rem;
+  }
+
+  .about-sheet {
+    border-radius: var(--radius);
+    padding-bottom: 1rem;
+  }
 }
 
 /* ---------- Mobile ---------- */

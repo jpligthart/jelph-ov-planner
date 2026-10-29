@@ -29,12 +29,14 @@ import {
   isCoords,
   placeLabel,
 } from "./format";
+import { AboutDialog } from "./AboutDialog";
 import {
   ArrowRightIcon,
   ClockIcon,
   CloseIcon,
   FilterIcon,
   HistoryIcon,
+  InfoIcon,
   SearchIcon,
   SwapIcon,
 } from "./icons";
@@ -110,6 +112,7 @@ export function App({ onLogout }: { onLogout?: () => void }) {
   const [timeTouched, setTimeTouched] = useState(false);
   const [filters, setFilters] = useState<Filters>(loadFilters);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
   const [recent, setRecent] = useState<RecentTrip[]>(loadRecent);
 
   const [loading, setLoading] = useState(false);
@@ -297,6 +300,16 @@ export function App({ onLogout }: { onLogout?: () => void }) {
         <Logo />
         <div className="topbar-end">
           <span className="topbar-tag">Deur tot deur, slim gepland</span>
+          <button
+            type="button"
+            className="link-button about-trigger"
+            onClick={() => setAboutOpen(true)}
+            aria-haspopup="dialog"
+            aria-expanded={aboutOpen}
+          >
+            <InfoIcon size={16} />
+            Over
+          </button>
           {onLogout ? (
             <button type="button" className="link-button logout" onClick={onLogout}>
               Uitloggen
@@ -609,23 +622,7 @@ export function App({ onLogout }: { onLogout?: () => void }) {
         </section>
       </main>
 
-      <footer className="foot">
-        Reisdata o.a. via{" "}
-        <a href="https://transitous.org/sources/" target="_blank" rel="noreferrer">
-          Transitous
-        </a>
-        {" · "}
-        ©{" "}
-        <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">
-          OpenStreetMap contributors
-        </a>
-        {" "}
-        (ODbL)
-        {" · "}
-        <a href="https://ko-fi.com/jelphme" target="_blank" rel="noreferrer">
-          Ko-fi
-        </a>
-      </footer>
+      <AboutDialog open={aboutOpen} onClose={() => setAboutOpen(false)} />
     </div>
   );
 }

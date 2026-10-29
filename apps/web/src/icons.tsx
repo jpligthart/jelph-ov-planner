@@ -160,6 +160,13 @@ export const ArrowRightIcon = (p: IconProps) => (
   </Svg>
 );
 
+export const InfoIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 10v6M12 7h.01" />
+  </Svg>
+);
+
 export function ModeIcon({ kind, ...rest }: IconProps & { kind: ModeKind }) {
   switch (kind) {
     case "train":
