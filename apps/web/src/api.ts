@@ -20,6 +20,8 @@ export type PlanLeg = {
   scheduledArrival?: string;
   modality?: string;
   cancelled?: boolean;
+  /** The change onto this leg can't be made (NS says so, or times overlap). */
+  missedConnection?: boolean;
   distanceMeters?: number;
   originTrack?: string;
   destinationTrack?: string;

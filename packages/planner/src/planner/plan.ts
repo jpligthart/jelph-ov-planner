@@ -17,6 +17,7 @@ import { findNearbyStations } from "./nearby.js";
 import {
   dedupeOptions,
   dropDominated,
+  markMissedConnections,
   rankOptions,
   type RankedOption,
 } from "./rank.js";
@@ -235,7 +236,7 @@ function buildOption(args: {
     fromStation: args.fromHub ? hubAsStation(args.fromHub) : undefined,
     toStation: args.toHub ? hubAsStation(args.toHub) : undefined,
     notes,
-    legs: args.trip.legs,
+    legs: markMissedConnections(args.trip.legs),
     trip: args.trip,
     source: args.source,
   };

@@ -177,16 +177,21 @@ function Itinerary({ id, steps }: { id: string; steps: Step[] }) {
         }
         if (item.type === "wait") {
           return (
-            <li key={i} className={`it-row it-wait${item.tight ? " is-tight" : ""}`}>
+            <li
+              key={i}
+              className={`it-row it-wait${item.tight ? " is-tight" : ""}${item.missed ? " is-missed" : ""}`}
+            >
               <span className="it-time" />
               <span className="it-rail" aria-hidden="true" />
               <span className="it-note">
                 <ClockIcon size={14} />
-                {item.tight
-                  ? item.minutes > 0
-                    ? `Krappe overstap: ${item.minutes} min`
-                    : "Krappe overstap"
-                  : `${formatDuration(item.minutes)} overstaptijd`}
+                {item.missed
+                  ? "Overstap niet haalbaar"
+                  : item.tight
+                    ? item.minutes > 0
+                      ? `Krappe overstap: ${item.minutes} min`
+                      : "Krappe overstap"
+                    : `${formatDuration(item.minutes)} overstaptijd`}
               </span>
             </li>
           );
@@ -229,6 +234,8 @@ type Connection = {
   lat: number;
   lng: number;
   readyAt: string;
+  /** The change can't be made, e.g. because the train before runs late. */
+  missed: boolean;
 };
 
 /**
@@ -243,10 +250,19 @@ function lastConnection(legs: PlanLeg[]): Connection | null {
   const lat = before.destinationLat ?? last.originLat;
   const lng = before.destinationLng ?? last.originLng;
   if (lat === undefined || lng === undefined || !before.plannedArrival) return null;
-  return { stop: before.destination, lat, lng, readyAt: before.plannedArrival };
+  return {
+    stop: before.destination,
+    lat,
+    lng,
+    readyAt: before.plannedArrival,
+    missed: last.missedConnection === true,
+  };
 }
 
-/** Backups for the last connection, shown only inside an opened trip. */
+/**
+ * Backups for the last connection, shown only inside an opened trip. When
+ * that connection can't be made, the card opens with them by itself.
+ */
 function Alternatives({
   connection,
   alternatives,
@@ -257,8 +273,15 @@ function Alternatives({
   planned?: Date;
 }) {
   return (
-    <section className="alts" aria-label="Andere aansluitingen">
-      <h4 className="alts-title">Mis je de aansluiting in {connection.stop}?</h4>
+    <section
+      className={`alts${connection.missed ? " is-missed" : ""}`}
+      aria-label="Andere aansluitingen"
+    >
+      <h4 className="alts-title">
+        {connection.missed
+          ? `Aansluiting in ${connection.stop} niet haalbaar. Zo kom je er wel:`
+          : `Mis je de aansluiting in ${connection.stop}?`}
+      </h4>
       <ul className="alts-list">
         {alternatives.map((alt) => {
           const rides = alt.legs.filter((l) => modeKind(l.modality) !== "walk");
@@ -294,10 +317,11 @@ function Alternatives({
 }
 
 export function OptionCard({ option, fromLabel, toLabel, destination, badges }: Props) {
-  const [open, setOpen] = useState(false);
+  const connection = lastConnection(option.legs);
+  // Open from the start when the last change fails: the way out is the news.
+  const [open, setOpen] = useState(() => connection?.missed === true);
   const detailsId = useId();
   const [alternatives, setAlternatives] = useState<ConnectionAlternative[] | null>(null);
-  const connection = lastConnection(option.legs);
 
   const steps = buildSteps(option, fromLabel, toLabel);
   const depart = doorDeparture(option);
@@ -305,6 +329,7 @@ export function OptionCard({ option, fromLabel, toLabel, destination, badges }: 
   const walk = walkMetersTotal(option);
   const transit = steps.filter((s) => s.kind !== "walk");
   const cancelled = option.legs.some((l) => l.cancelled);
+  const missed = option.legs.some((l) => l.missedConnection);
 
   // Looked up once, the first time the trip is opened. Failures just show
   // nothing: the backup is a nice-to-have, not part of the trip.
@@ -392,6 +417,9 @@ export function OptionCard({ option, fromLabel, toLabel, destination, badges }: 
               </span>
             ) : null}
             {cancelled ? <span className="fact-alert">Rit vervalt</span> : null}
+            {missed && !cancelled ? (
+              <span className="fact-alert">Overstap niet haalbaar</span>
+            ) : null}
           </span>
           <ChevronIcon size={18} className="option-chevron" />
         </span>

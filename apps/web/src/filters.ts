@@ -176,10 +176,12 @@ export function computeBadges(
   if (context) {
     // Only trips that fit the time the user chose, from their own search:
     // loading earlier or later trips must not move the recommendation.
+    // Never one that may not work: a cancelled leg or a change you can't make.
     const fits = options.filter(
       (o) =>
         waitMinutes(o, context) >= -1 &&
-        (!context.initialIds || context.initialIds.has(o.id)),
+        (!context.initialIds || context.initialIds.has(o.id)) &&
+        !o.legs.some((l) => l.cancelled || l.missedConnection),
     );
     const candidates = fits.length > 0 ? fits : options;
     recommended = candidates.reduce((a, b) =>

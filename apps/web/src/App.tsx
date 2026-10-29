@@ -25,6 +25,7 @@ import {
 import {
   doorArrival,
   doorDeparture,
+  formatClock,
   friendlyError,
   isCoords,
   placeLabel,
@@ -85,6 +86,8 @@ type Search = {
   maxArrive: number;
   /** Options of the search itself, before any "Eerdere/Latere reizen". */
   initialIds: ReadonlySet<string>;
+  /** When the trips were fetched; delays and platforms are as of then. */
+  updatedAt: number;
 };
 
 /** Same trip found by different searches. */
@@ -212,6 +215,7 @@ export function App({ onLogout }: { onLogout?: () => void }) {
         minDepart: at.getTime(),
         maxArrive: at.getTime(),
         initialIds: new Set(data.options.map((o) => o.id)),
+        updatedAt: Date.now(),
       });
       if (!isCoords(f) && !isCoords(t)) setRecent(pushRecent({ from: f, to: t }));
       if (isMobile) setCollapsed(true);
@@ -228,6 +232,12 @@ export function App({ onLogout }: { onLogout?: () => void }) {
   function onSubmit(event: FormEvent) {
     event.preventDefault();
     void runSearch({ from, to, choice: time });
+  }
+
+  /** Same search again, for fresh delays and platforms. */
+  function refresh() {
+    if (!searched) return;
+    void runSearch({ from: searched.from, to: searched.to, choice: searched.choice });
   }
 
   function pickRecent(trip: RecentTrip) {
@@ -471,7 +481,18 @@ export function App({ onLogout }: { onLogout?: () => void }) {
                     <h1 className="results-title">Reizen zoeken…</h1>
                   )}
                   {searched ? (
-                    <p className="results-sub">{describeChoice(searched.choice)}</p>
+                    <p className="results-sub">
+                      {describeChoice(searched.choice)} · bijgewerkt{" "}
+                      {formatClock(new Date(searched.updatedAt))}{" "}
+                      <button
+                        type="button"
+                        className="link-button results-refresh"
+                        onClick={refresh}
+                        disabled={loading}
+                      >
+                        Vernieuwen
+                      </button>
+                    </p>
                   ) : null}
                 </div>
 

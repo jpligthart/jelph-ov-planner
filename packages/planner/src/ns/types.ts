@@ -19,6 +19,8 @@ export type TripLegSummary = {
   scheduledArrival?: string;
   modality?: string;
   cancelled?: boolean;
+  /** The change onto this leg can't be made (see markMissedConnections). */
+  missedConnection?: boolean;
   /** Leg distance in meters when the source provides it (walk legs). */
   distanceMeters?: number;
   /** Platform/track at the boarding and alighting stop, when known. */

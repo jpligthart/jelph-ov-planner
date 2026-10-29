@@ -36,6 +36,26 @@ function tripSignature(trip: NsTrip): string {
   ].join("||");
 }
 
+/**
+ * Flag each leg whose change you can't make: the source says so (NS), or,
+ * with real-time times, the vehicle before it arrives after it leaves. Only
+ * a change counts, so the first vehicle never gets the flag.
+ */
+export function markMissedConnections(
+  legs: NsTrip["legs"],
+): NsTrip["legs"] {
+  let previousArrival: number | undefined;
+  return legs.map((leg) => {
+    if (WALK_MODALITY_RE.test(leg.modality ?? "")) return leg;
+    const departs = leg.plannedDeparture ? Date.parse(leg.plannedDeparture) : NaN;
+    const missed =
+      previousArrival !== undefined &&
+      (leg.missedConnection === true || departs < previousArrival);
+    previousArrival = leg.plannedArrival ? Date.parse(leg.plannedArrival) : NaN;
+    return { ...leg, missedConnection: missed || undefined };
+  });
+}
+
 export function dedupeOptions(options: RankedOption[]): RankedOption[] {
   const seen = new Set<string>();
   const out: RankedOption[] = [];
@@ -78,7 +98,8 @@ type Profile = {
   option: RankedOption;
   times: { leave: number; arrive: number } | null;
   walk: number;
-  cancelled: boolean;
+  /** A leg is cancelled or a change can't be made: the trip may not work. */
+  broken: boolean;
 };
 
 /**
@@ -86,7 +107,7 @@ type Profile = {
  * no extra transfers unless it saves a long walk, and better on at least one.
  */
 function dominates(a: Profile, b: Profile): boolean {
-  if (a.cancelled || !a.times || !b.times) return false;
+  if (a.broken || !a.times || !b.times) return false;
   if (a.times.leave < b.times.leave) return false;
   if (a.times.arrive > b.times.arrive) return false;
   if (a.walk > b.walk) return false;
@@ -106,15 +127,15 @@ function dominates(a: Profile, b: Profile): boolean {
 /**
  * Drop options another option beats on every count, e.g. walking to the next
  * station for a slower stopping train when a later, faster trip exists.
- * Options with a cancelled leg never push others out, so a detour stays
- * available when the regular service is not running.
+ * Options with a cancelled leg or a change you can't make never push others
+ * out, so a detour stays available when the regular trip doesn't work.
  */
 export function dropDominated(options: RankedOption[]): RankedOption[] {
   const profiles: Profile[] = options.map((option) => ({
     option,
     times: doorTimes(option),
     walk: walkMetersOf(option),
-    cancelled: option.legs.some((l) => l.cancelled),
+    broken: option.legs.some((l) => l.cancelled || l.missedConnection),
   }));
   return profiles
     .filter((p) => !profiles.some((other) => other !== p && dominates(other, p)))

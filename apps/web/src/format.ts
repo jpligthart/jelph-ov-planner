@@ -193,6 +193,8 @@ export type Step = {
   minutes: number;
   meters?: number;
   cancelled?: boolean;
+  /** The change onto this step can't be made. */
+  missed?: boolean;
   originTrack?: string;
   destinationTrack?: string;
   /** Minutes behind the timetable at either end; 0 when on time. */
@@ -252,6 +254,7 @@ export function buildSteps(option: PlanOption, fromLabel: string, toLabel: strin
       minutes,
       meters: kind === "walk" ? walkLegMeters(leg) : undefined,
       cancelled: leg.cancelled,
+      missed: leg.missedConnection,
       originTrack: leg.originTrack,
       destinationTrack: leg.destinationTrack,
       departDelay: vehicle ? delayMinutes(leg.plannedDeparture, leg.scheduledDeparture) : 0,
@@ -311,7 +314,7 @@ export type ItineraryItem =
       role: "start" | "via" | "end";
     }
   | { type: "move"; step: Step; toward?: string }
-  | { type: "wait"; minutes: number; tight: boolean };
+  | { type: "wait"; minutes: number; tight: boolean; missed: boolean };
 
 function isTrivialWalk(step: Step): boolean {
   if (step.kind !== "walk") return false;
@@ -427,7 +430,10 @@ export function buildItinerary(steps: Step[]): ItineraryItem[] {
     });
     // Only a transfer onto a vehicle, after riding one, can be missed.
     const tight = rodeVehicle && next.kind !== "walk" && wait <= 2;
-    if (wait > 0 || tight) items.push({ type: "wait", minutes: wait, tight });
+    const missed = next.missed === true;
+    if (wait > 0 || tight || missed) {
+      items.push({ type: "wait", minutes: wait, tight: tight && !missed, missed });
+    }
   });
 
   return items;
