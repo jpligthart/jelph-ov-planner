@@ -194,6 +194,12 @@ export const HeartIcon = (p: IconProps) => (
   </Svg>
 );
 
+export const MenuIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M4 7h16M4 12h16M4 17h16" />
+  </Svg>
+);
+
 export const MapIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2z" />

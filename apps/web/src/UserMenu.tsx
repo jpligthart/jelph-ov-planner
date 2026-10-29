@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { InfoIcon, LogoutIcon } from "./icons";
+import { InfoIcon, LogoutIcon, MenuIcon } from "./icons";
+import { THEME_LABELS, applyTheme, loadTheme, type ThemeChoice } from "./theme";
 
 type Props = {
   /** Logged-in user; without login there is nothing to sign out of. */
@@ -8,18 +9,21 @@ type Props = {
   onLogout?: () => void;
 };
 
+const THEME_ORDER: ThemeChoice[] = ["light", "dark", "auto"];
+
 /**
- * One quiet control in the top bar. Logged in: your initial, opening a menu
- * with who you are, "Over" and "Uitloggen". Without login: just "Over".
+ * The one control in the top bar: a menu with who you are, the theme,
+ * "Over" and, when logged in, "Uitloggen".
  */
 export function UserMenu({ user, onAbout, onLogout }: Props) {
   const [open, setOpen] = useState(false);
+  const [theme, setTheme] = useState<ThemeChoice>(loadTheme);
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (!open) return;
-    root.current?.querySelector<HTMLElement>("[role=menuitem]")?.focus();
+    root.current?.querySelector<HTMLElement>("[aria-checked=true]")?.focus();
     const onPointer = (e: PointerEvent) => {
       if (!root.current?.contains(e.target as Node)) setOpen(false);
     };
@@ -36,17 +40,15 @@ export function UserMenu({ user, onAbout, onLogout }: Props) {
     };
   }, [open]);
 
-  if (!onLogout) {
-    return (
-      <button type="button" className="icon-button topbar-button" onClick={onAbout} aria-label="Over Jelph OV">
-        <InfoIcon size={18} />
-      </button>
-    );
-  }
-
   const choose = (action: () => void) => () => {
     setOpen(false);
     action();
+  };
+
+  // Stays open: you see the theme change behind the menu.
+  const pickTheme = (choice: ThemeChoice) => {
+    setTheme(choice);
+    applyTheme(choice);
   };
 
   return (
@@ -54,13 +56,13 @@ export function UserMenu({ user, onAbout, onLogout }: Props) {
       <button
         ref={trigger}
         type="button"
-        className="icon-button topbar-button avatar"
+        className="icon-button topbar-button"
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="menu"
         aria-expanded={open}
-        aria-label={user ? `Menu voor ${user}` : "Menu"}
+        aria-label="Menu"
       >
-        {user ? user.trim().charAt(0).toUpperCase() : <InfoIcon size={18} />}
+        <MenuIcon size={20} />
       </button>
       {open ? (
         <div className="menu" role="menu">
@@ -69,14 +71,35 @@ export function UserMenu({ user, onAbout, onLogout }: Props) {
               Ingelogd als <strong>{user}</strong>
             </p>
           ) : null}
+          <div className="menu-group" role="group" aria-labelledby="menu-theme">
+            <span id="menu-theme" className="menu-label">
+              Weergave
+            </span>
+            <div className="menu-segments">
+              {THEME_ORDER.map((choice) => (
+                <button
+                  key={choice}
+                  type="button"
+                  role="menuitemradio"
+                  aria-checked={theme === choice}
+                  className={`menu-segment${theme === choice ? " is-on" : ""}`}
+                  onClick={() => pickTheme(choice)}
+                >
+                  {THEME_LABELS[choice]}
+                </button>
+              ))}
+            </div>
+          </div>
           <button type="button" role="menuitem" className="menu-item" onClick={choose(onAbout)}>
             <InfoIcon size={16} />
             Over Jelph OV
           </button>
-          <button type="button" role="menuitem" className="menu-item" onClick={choose(onLogout)}>
-            <LogoutIcon size={16} />
-            Uitloggen
-          </button>
+          {onLogout ? (
+            <button type="button" role="menuitem" className="menu-item" onClick={choose(onLogout)}>
+              <LogoutIcon size={16} />
+              Uitloggen
+            </button>
+          ) : null}
         </div>
       ) : null}
     </div>

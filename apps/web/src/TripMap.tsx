@@ -4,6 +4,7 @@ import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?url";
 import "maplibre-gl/dist/maplibre-gl.css";
 import type { PlanOption } from "./api";
 import { modeKind, type ModeKind } from "./format";
+import { useIsDark } from "./theme";
 
 // Served from our own origin; MapLibre would otherwise look next to its
 // bundled module, which Vite moves.
@@ -103,6 +104,7 @@ type Props = { option: PlanOption; from: Point; to: Point };
 /** The trip on a map: vehicles in their mode colour, walks dotted. */
 export default function TripMap({ option, from, to }: Props) {
   const container = useRef<HTMLDivElement>(null);
+  const dark = useIsDark();
 
   useEffect(() => {
     if (!container.current) return;
@@ -118,7 +120,6 @@ export default function TripMap({ option, from, to }: Props) {
     // faint on a map.
     const lineColor = (kind: ModeKind) =>
       kind === "walk" ? token("--muted", "#64748b") : token(`--mode-${kind}`, "#64748b");
-    const dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
 
     const map = new MapLibre({
       container: container.current,
@@ -201,7 +202,8 @@ export default function TripMap({ option, from, to }: Props) {
     });
 
     return () => map.remove();
-  }, [option, from, to]);
+    // Rebuilt on a theme switch: the colours above are read once.
+  }, [option, from, to, dark]);
 
   return <div ref={container} className="trip-map" aria-label="Kaart van de reis" role="img" />;
 }
