@@ -32,6 +32,8 @@
   --shadow: 0 1px 2px rgb(15 23 42 / 0.04), 0 4px 16px rgb(15 23 42 / 0.06);
   --shadow-lg: 0 12px 40px rgb(15 23 42 / 0.16);
   --font: "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* Top bar height; sticky offsets below it are derived from this. */
+  --topbar-h: 65px;
   color-scheme: light;
 }
 
@@ -169,6 +171,8 @@ button {
   position: sticky;
   top: 0;
   z-index: 40;
+  /* Fixed, so everything pinned below it can line up with --topbar-h. */
+  height: var(--topbar-h);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1993,7 +1997,7 @@ button {
 
   .toolbar {
     position: sticky;
-    top: 57px;
+    top: var(--topbar-h);
     z-index: 20;
     margin: 0 -1rem 0.75rem;
     padding: 0.5rem 1rem;
@@ -2051,7 +2055,7 @@ button {
   .results-top {
     /* Pinned exactly where it starts, so it never moves while scrolling. */
     position: sticky;
-    top: 79px;
+    top: calc(var(--topbar-h) + 1.5rem);
     z-index: 20;
     /* Wider than the column so card shadows sliding under stay hidden. */
     margin: -0.25rem -1rem 0;
@@ -2110,7 +2114,7 @@ button {
 @media (min-width: 960px) and (min-height: 820px) {
   .sidebar {
     position: sticky;
-    top: 78px;
+    top: calc(var(--topbar-h) + 1.5rem);
   }
 }
 
