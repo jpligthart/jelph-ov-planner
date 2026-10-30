@@ -194,20 +194,10 @@ button {
 }
 
 .logo-mark {
-  width: 30px;
-  height: 30px;
-  border-radius: 9px;
-  background: linear-gradient(135deg, var(--primary), #7c5cff);
-  display: grid;
-  place-items: center;
+  flex-shrink: 0;
+  border-radius: 8px;
   box-shadow: 0 4px 12px color-mix(in srgb, var(--primary) 35%, transparent);
-}
-
-.logo-mark span {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  border: 3px solid #fff;
+  display: block;
 }
 
 .topbar-tag {

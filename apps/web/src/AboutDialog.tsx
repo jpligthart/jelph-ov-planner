@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { CloseIcon, ExternalIcon, HeartIcon } from "./icons";
+import { LogoMark } from "./Logo";
 
 type Props = {
   open: boolean;
@@ -43,9 +44,7 @@ export function AboutDialog({ open, onClose }: Props) {
       <div className="about-backdrop" onClick={onClose} aria-hidden="true" />
       <div className="about-dialog" role="dialog" aria-modal="true" aria-labelledby="about-title">
         <header className="about-head">
-          <span className="logo-mark" aria-hidden="true">
-            <span />
-          </span>
+          <LogoMark size={36} />
           <div className="about-heading">
             <h2 id="about-title">Over Jelph OV</h2>
             <p>Slimme deur-tot-deur OV-planner voor Nederland</p>
