@@ -2,6 +2,8 @@
 
 Smartere multimodale OV-routeplanner voor Nederland: fans out over nabije haltes/stations, rankt deur-tot-deur opties. De **web UI + API** is het primaire pad; CLI en MCP bestaan als early/experimental shells rond dezelfde planner-core.
 
+Toegang tot de gehoste versie is beperkt. Er is geen accountregistratie: je logt in met een vooraf ingesteld account.
+
 Handig gevonden? [Ko-fi / tip jar](https://ko-fi.com/jelphme).
 
 ## Architectuur
@@ -76,7 +78,7 @@ Intern: `PlanResult` (incl. `warnings` / debug). Naar buiten via API: `toPublicP
 
 - `NS_API_KEY` alleen server-side (API-env) — **niet** in de browser.
 - Web → API → planner.
-- Login om `/api/*` heen (`apps/api/src/auth.ts`), niet in de planner. Gebruikers in `AUTH_USERS`, sessie als ondertekende cookie (90 dagen).
+- Login om `/api/*` heen (`apps/api/src/auth.ts`), niet in de planner. Geen zelfregistratie: alleen vooraf ingestelde accounts in `AUTH_USERS`. Sessie als ondertekende cookie (90 dagen). Lokaal in development mag `AUTH_USERS` leeg blijven (login uit); in productie start de API niet zonder accounts.
 - Gedeeld request-budget per 5 minuten beschermt de NS-quota (`apps/api/src/budget.ts`).
 
 ## Setup
@@ -105,6 +107,8 @@ npm run dev:web
 
 Open http://127.0.0.1:5173
 
+Zonder `AUTH_USERS` in `.env` staat login uit (alleen development). De gehoste site vraagt wel om een bestaand account.
+
 ## Docker (self-host)
 
 ```powershell
@@ -129,7 +133,7 @@ De VM bouwt niets zelf: images worden lokaal gebouwd en via een registry gedeeld
 
    Op de VM: [`deploy/compose.prod.yaml`](deploy/compose.prod.yaml) als `compose.yaml` naast een `.env` (met dezelfde `IMAGE_REGISTRY`), `docker login <registry-host>` en `docker compose up -d`. Updaten: opnieuw pushen en op de VM `docker compose up -d` (haalt altijd de nieuwste images op).
 
-1. **Gebruikers aanmaken** — per persoon een regel voor `AUTH_USERS`:
+1. **Accounts instellen** — geen registratie in de app; per persoon een hash in `AUTH_USERS`:
 
    ```sh
    docker compose run --rm api node apps/api/dist/hash-password.js jp
