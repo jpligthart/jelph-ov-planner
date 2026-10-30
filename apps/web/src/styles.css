@@ -1065,6 +1065,10 @@ button {
   font-variant-numeric: tabular-nums;
 }
 
+.refresh-button.is-busy svg {
+  animation: spin 0.8s linear infinite;
+}
+
 .refresh-button:hover:not(:disabled) {
   background: var(--surface-2);
   color: var(--primary);

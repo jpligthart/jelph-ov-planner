@@ -345,6 +345,9 @@ export function OptionCard({ option, fromLabel, toLabel, origin, destination, ba
   const cancelled = option.legs.some((l) => l.cancelled);
   const missed = option.legs.some((l) => l.missedConnection);
 
+  // New times after a refresh: look the backups up again when needed.
+  useEffect(() => setAlternatives(null), [option]);
+
   // Looked up once, the first time the trip is opened. Failures just show
   // nothing: the backup is a nice-to-have, not part of the trip.
   const wantAlternatives = open && connection !== null && alternatives === null;

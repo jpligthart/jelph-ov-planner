@@ -78,6 +78,9 @@ function useMediaQuery(query: string): boolean {
 /** How far ahead delays and platform changes are known. */
 const LIVE_WINDOW_MS = 3 * 60 * 60 * 1000;
 
+/** Coming back to the app after this long refreshes live results. */
+const STALE_MS = 5 * 60 * 1000;
+
 type Search = {
   from: string;
   to: string;
@@ -94,6 +97,16 @@ type Search = {
   /** When the trips were fetched; delays and platforms are as of then. */
   updatedAt: number;
 };
+
+/**
+ * The same trip across refreshes: timetable times don't move with a delay,
+ * so an opened card stays open when its times are updated.
+ */
+function cardKey(o: PlanOption): string {
+  return o.legs
+    .map((l) => `${l.scheduledDeparture ?? l.plannedDeparture}|${l.modality}|${l.origin}`)
+    .join(";");
+}
 
 /** Same trip found by different searches. */
 function tripKey(o: PlanOption): string {
@@ -129,6 +142,8 @@ export function App({ user, onLogout }: { user?: string; onLogout?: () => void }
   const [searched, setSearched] = useState<Search | null>(null);
   const [collapsed, setCollapsed] = useState(false);
   const [loadingMore, setLoadingMore] = useState<-1 | 1 | null>(null);
+  /** A quiet refresh: the list stays as it is until the new times are in. */
+  const [refreshing, setRefreshing] = useState(false);
   const requestId = useRef(0);
 
   useEffect(() => saveFilters(filters), [filters]);
@@ -160,6 +175,16 @@ export function App({ user, onLogout }: { user?: string; onLogout?: () => void }
   }, [result, searched]);
 
   const visible = useMemo(() => applyFilters(pool, filters), [pool, filters]);
+  // React keys per card; two trips on the same timetable fall back to the id.
+  const cardKeys = useMemo(() => {
+    const seen = new Set<string>();
+    return visible.map((option) => {
+      const key = cardKey(option);
+      if (seen.has(key)) return `${key}#${option.id}`;
+      seen.add(key);
+      return key;
+    });
+  }, [visible]);
   const badges = useMemo(
     () =>
       computeBadges(
@@ -191,15 +216,27 @@ export function App({ user, onLogout }: { user?: string; onLogout?: () => void }
     );
   }
 
-  async function runSearch(next: { from: string; to: string; choice: TimeChoice }) {
+  /**
+   * Search and show the result. `quiet` refreshes the current search: no
+   * loading state, opened cards stay open, and a failure keeps what was
+   * shown rather than replacing it with an error.
+   */
+  async function runSearch(
+    next: { from: string; to: string; choice: TimeChoice },
+    { quiet = false } = {},
+  ) {
     const f = next.from.trim();
     const t = next.to.trim();
     if (!f || !t) return;
 
     const id = ++requestId.current;
     const at = choiceDate(next.choice);
-    setLoading(true);
-    setError(null);
+    if (quiet) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+      setError(null);
+    }
     try {
       const data = await planTrip({
         from: f,
@@ -222,15 +259,19 @@ export function App({ user, onLogout }: { user?: string; onLogout?: () => void }
         initialIds: new Set(data.options.map((o) => o.id)),
         updatedAt: Date.now(),
       });
+      if (quiet) return;
       if (!isCoords(f) && !isCoords(t)) setRecent(pushRecent({ from: f, to: t }));
       if (isMobile) setCollapsed(true);
     } catch (err) {
-      if (id !== requestId.current) return;
+      if (id !== requestId.current || quiet) return;
       setResult(null);
       setSearched(null);
       setError(friendlyError(err instanceof Error ? err.message : String(err)));
     } finally {
-      if (id === requestId.current) setLoading(false);
+      if (id === requestId.current) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   }
 
@@ -242,8 +283,24 @@ export function App({ user, onLogout }: { user?: string; onLogout?: () => void }
   /** Same search again, for fresh delays and platforms. */
   function refresh() {
     if (!searched) return;
-    void runSearch({ from: searched.from, to: searched.to, choice: searched.choice });
+    void runSearch(
+      { from: searched.from, to: searched.to, choice: searched.choice },
+      { quiet: true },
+    );
   }
+
+  // Back in the app after a while (another tab, phone in your pocket):
+  // refresh live results by itself, so you never act on old delays.
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState !== "visible" || !searched) return;
+      if (loading || refreshing) return;
+      const live = searched.at - Date.now() < LIVE_WINDOW_MS;
+      if (live && Date.now() - searched.updatedAt > STALE_MS) refresh();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  });
 
   function pickRecent(trip: RecentTrip) {
     setFrom(trip.from);
@@ -482,9 +539,9 @@ export function App({ user, onLogout }: { user?: string; onLogout?: () => void }
                       {searched.at - Date.now() < LIVE_WINDOW_MS ? (
                         <button
                           type="button"
-                          className="refresh-button"
+                          className={`refresh-button${refreshing ? " is-busy" : ""}`}
                           onClick={refresh}
-                          disabled={loading}
+                          disabled={loading || refreshing}
                           title="Opnieuw zoeken voor actuele vertragingen"
                           aria-label={`Bijgewerkt om ${formatClock(new Date(searched.updatedAt))}, vernieuwen`}
                         >
@@ -578,9 +635,9 @@ export function App({ user, onLogout }: { user?: string; onLogout?: () => void }
                     {loadingMore === -1 ? "Laden…" : "Eerdere reizen"}
                   </button>
                   <ol className="option-list">
-                    {visible.map((option) => (
+                    {visible.map((option, i) => (
                       <OptionCard
-                        key={option.id}
+                        key={cardKeys[i]}
                         option={option}
                         fromLabel={fromTitle}
                         toLabel={toTitle}
