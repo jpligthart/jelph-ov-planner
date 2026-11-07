@@ -2,6 +2,8 @@ import type { PlanOption } from "./api";
 import {
   doorArrival,
   doorDeparture,
+  formatDistance,
+  formatDuration,
   modeKind,
   longestWalkMeters,
   walkMetersTotal,
@@ -210,6 +212,66 @@ export function computeBadges(
   pick((o) => o.transfers, "fewestTransfers");
   pick(walkMetersTotal, "leastWalk");
   return badges;
+}
+
+/**
+ * How long before the chosen departure time a trip may leave and still be
+ * offered. A search asks the planner for those trips as `earlierMinutes`.
+ */
+export const EARLIER_WINDOW_MINUTES = 15;
+
+/** Offered at most, so the list still starts around the chosen time. */
+const MAX_EARLIER = 2;
+
+/** Less walking than this isn't worth leaving earlier for. */
+const WORTH_LEAVING_EARLIER_FOR_METERS = 300;
+
+export type EarlierOption = { option: PlanOption; reason: string };
+
+/**
+ * Trips leaving shortly before the chosen time that are worth it: they
+ * arrive sooner than any trip leaving on time, or arrive as soon with fewer
+ * transfers or clearly less walking. `before` holds the trips leaving in the
+ * window before `at`, `onTime` the trips shown for the chosen time.
+ */
+export function earlierOptions(
+  before: PlanOption[],
+  onTime: PlanOption[],
+  at: number,
+): EarlierOption[] {
+  const arrival = (o: PlanOption) => doorArrival(o)?.getTime() ?? Infinity;
+  const first = onTime.reduce<PlanOption | undefined>(
+    (best, o) => (!best || arrival(o) < arrival(best) ? o : best),
+    undefined,
+  );
+  if (!first) return [];
+
+  const picked: EarlierOption[] = [];
+  for (const option of before) {
+    const leaves = doorDeparture(option)?.getTime();
+    if (leaves === undefined || at - leaves < MIN) continue;
+    if (option.legs.some((l) => l.cancelled || l.missedConnection)) continue;
+    if (option.legs.every((l) => modeKind(l.modality) === "walk")) continue;
+
+    const sooner = Math.round((arrival(first) - arrival(option)) / MIN);
+    const lessWalk = walkMetersTotal(first) - walkMetersTotal(option);
+    let gain: string | undefined;
+    if (sooner >= 1) gain = `${formatDuration(sooner)} eerder aan`;
+    else if (sooner >= 0 && option.transfers < first.transfers) {
+      const fewer = first.transfers - option.transfers;
+      gain = fewer === 1 ? "1 overstap minder" : `${fewer} overstappen minder`;
+    } else if (sooner >= 0 && lessWalk >= WORTH_LEAVING_EARLIER_FOR_METERS) {
+      gain = `${formatDistance(lessWalk)} minder lopen`;
+    }
+    if (!gain) continue;
+    const earlier = formatDuration(Math.round((at - leaves) / MIN));
+    picked.push({ option, reason: `${earlier} eerder weg · ${gain}` });
+  }
+  // The ones closest to the chosen time, in departure order.
+  return picked
+    .sort((a, b) => (doorDeparture(b.option)?.getTime() ?? 0) - (doorDeparture(a.option)?.getTime() ?? 0))
+    .slice(0, MAX_EARLIER)
+    .reverse();
 }
 
 /**

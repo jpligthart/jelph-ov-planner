@@ -16,6 +16,8 @@ import {
   activeFilterCount,
   applyFilters,
   computeBadges,
+  earlierOptions,
+  EARLIER_WINDOW_MINUTES,
   optionModes,
   SEARCH_RADIUS_METERS,
   hiddenOnlyByWalk,
@@ -99,6 +101,20 @@ type Search = {
 };
 
 /**
+ * Departures before the requested time can't be caught; drop them.
+ * Departure searches: nothing that leaves before the chosen time.
+ * Arrival searches: nothing that arrives after it. "Eerdere/Latere reizen"
+ * widen these bounds on purpose.
+ */
+function inSearchWindow(option: PlanOption, search: Search): boolean {
+  const slack = 60000;
+  if (search.choice.mode === "arrive") {
+    return (doorArrival(option)?.getTime() ?? 0) <= search.maxArrive + slack;
+  }
+  return (doorDeparture(option)?.getTime() ?? Infinity) >= search.minDepart - slack;
+}
+
+/**
  * The same trip across refreshes: timetable times don't move with a delay,
  * so an opened card stays open when its times are updated.
  */
@@ -142,6 +158,8 @@ export function App({ user, onLogout }: { user?: string; onLogout?: () => void }
   const [searched, setSearched] = useState<Search | null>(null);
   const [collapsed, setCollapsed] = useState(false);
   const [loadingMore, setLoadingMore] = useState<-1 | 1 | null>(null);
+  /** Shown under "Eerdere/Latere reizen" when a click added nothing visible. */
+  const [moreNote, setMoreNote] = useState<{ direction: -1 | 1; text: string } | null>(null);
   /** A quiet refresh: the list stays as it is until the new times are in. */
   const [refreshing, setRefreshing] = useState(false);
   const requestId = useRef(0);
@@ -157,24 +175,25 @@ export function App({ user, onLogout }: { user?: string; onLogout?: () => void }
 
   const markTouched = useCallback(() => setTimeTouched(true), []);
 
-  // Departures before the requested time can't be caught; drop them.
-  // Departure searches: nothing that leaves before the chosen time.
-  // Arrival searches: nothing that arrives after it. "Eerdere/Latere reizen"
-  // widen these bounds on purpose.
   const pool = useMemo(() => {
     if (!result || !searched) return result?.options ?? [];
-    const slack = 60000;
-    if (searched.choice.mode === "arrive") {
-      return result.options.filter(
-        (o) => (doorArrival(o)?.getTime() ?? 0) <= searched.maxArrive + slack,
-      );
-    }
-    return result.options.filter(
-      (o) => (doorDeparture(o)?.getTime() ?? Infinity) >= searched.minDepart - slack,
-    );
+    return result.options.filter((o) => inSearchWindow(o, searched));
   }, [result, searched]);
 
   const visible = useMemo(() => applyFilters(pool, filters), [pool, filters]);
+  // Trips leaving shortly before the chosen time, offered above the list when
+  // they get you there sooner. Only around the time itself: after "Eerdere
+  // reizen" those trips are in the list already.
+  const earlier = useMemo(() => {
+    if (!result || !searched || searched.choice.mode === "arrive") return [];
+    if (searched.minDepart !== searched.at) return [];
+    const from = searched.at - EARLIER_WINDOW_MINUTES * 60000;
+    const before = result.options.filter((o) => {
+      const leaves = doorDeparture(o)?.getTime();
+      return leaves !== undefined && leaves >= from && leaves < searched.minDepart - 60000;
+    });
+    return earlierOptions(applyFilters(before, filters), visible, searched.at);
+  }, [result, searched, filters, visible]);
   // React keys per card; two trips on the same timetable fall back to the id.
   const cardKeys = useMemo(() => {
     const seen = new Set<string>();
@@ -231,6 +250,9 @@ export function App({ user, onLogout }: { user?: string; onLogout?: () => void }
 
     const id = ++requestId.current;
     const at = choiceDate(next.choice);
+    // A new search drops a running "Eerdere/Latere reizen"; free the buttons.
+    setLoadingMore(null);
+    setMoreNote(null);
     if (quiet) {
       setRefreshing(true);
     } else {
@@ -246,6 +268,8 @@ export function App({ user, onLogout }: { user?: string; onLogout?: () => void }
         maxWalkMeters: SEARCH_RADIUS_METERS,
         maxNearby: 3,
         topK: 20,
+        // Not when paging: "Eerdere/Latere reizen" continue from the list's edge.
+        earlierMinutes: EARLIER_WINDOW_MINUTES,
       });
       if (id !== requestId.current) return;
       setResult(data);
@@ -326,6 +350,7 @@ export function App({ user, onLogout }: { user?: string; onLogout?: () => void }
     const when = new Date((edge ?? searched.at) + direction * 60000);
 
     setLoadingMore(direction);
+    setMoreNote(null);
     setError(null);
     try {
       const data = await planTrip({
@@ -344,8 +369,7 @@ export function App({ user, onLogout }: { user?: string; onLogout?: () => void }
       const added = data.options.filter(
         (o) => !known.has(tripKey(o)) && !(hasWalk && isWalkOnly(o)),
       );
-      setResult({ ...result, options: [...result.options, ...added] });
-      setSearched({
+      const nextSearched: Search = {
         ...searched,
         minDepart:
           direction < 0
@@ -355,7 +379,20 @@ export function App({ user, onLogout }: { user?: string; onLogout?: () => void }
           direction > 0
             ? Math.max(searched.maxArrive, edgeTime(added, doorArrival, Math.max) ?? -Infinity)
             : searched.maxArrive,
-      });
+      };
+      setResult({ ...result, options: [...result.options, ...added] });
+      setSearched(nextSearched);
+      // Without this, a click that only found hidden trips looks like nothing.
+      const reachable = added.filter((o) => inSearchWindow(o, nextSearched));
+      if (applyFilters(reachable, filters).length === 0) {
+        setMoreNote({
+          direction,
+          text:
+            reachable.length === 0
+              ? "Geen nieuwe reizen gevonden."
+              : `${reachable.length} ${reachable.length === 1 ? "nieuwe reis valt" : "nieuwe reizen vallen"} buiten je filters.`,
+        });
+      }
     } catch (err) {
       if (id !== requestId.current) return;
       setError(friendlyError(err instanceof Error ? err.message : String(err)));
@@ -634,6 +671,30 @@ export function App({ user, onLogout }: { user?: string; onLogout?: () => void }
                   >
                     {loadingMore === -1 ? "Laden…" : "Eerdere reizen"}
                   </button>
+                  {moreNote?.direction === -1 ? (
+                    <p className="more-note" role="status">{moreNote.text}</p>
+                  ) : null}
+                  {earlier.length > 0 && searched ? (
+                    <>
+                      <ol className="option-list" aria-label="Eerder vertrekken">
+                        {earlier.map(({ option, reason }) => (
+                          <OptionCard
+                            key={`earlier:${cardKey(option)}`}
+                            option={option}
+                            fromLabel={fromTitle}
+                            toLabel={toTitle}
+                            origin={result.from}
+                            destination={result.to}
+                            badges={[]}
+                            earlier={reason}
+                          />
+                        ))}
+                      </ol>
+                      <p className="time-divider">
+                        <span>Vanaf {formatClock(new Date(searched.at))}</span>
+                      </p>
+                    </>
+                  ) : null}
                   <ol className="option-list">
                     {visible.map((option, i) => (
                       <OptionCard
@@ -667,6 +728,9 @@ export function App({ user, onLogout }: { user?: string; onLogout?: () => void }
                   >
                     {loadingMore === 1 ? "Laden…" : "Latere reizen"}
                   </button>
+                  {moreNote?.direction === 1 ? (
+                    <p className="more-note" role="status">{moreNote.text}</p>
+                  ) : null}
                 </>
               ) : null}
             </>

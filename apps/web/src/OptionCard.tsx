@@ -45,6 +45,8 @@ type Props = {
   origin: { lat: number; lng: number };
   destination: { lat: number; lng: number };
   badges: Badge[];
+  /** Leaves before the chosen time; says what that gains, e.g. arriving sooner. */
+  earlier?: string;
 };
 
 /** Proportional bar: one coloured segment per step, gaps are waiting time. */
@@ -329,7 +331,15 @@ function Alternatives({
   );
 }
 
-export function OptionCard({ option, fromLabel, toLabel, origin, destination, badges }: Props) {
+export function OptionCard({
+  option,
+  fromLabel,
+  toLabel,
+  origin,
+  destination,
+  badges,
+  earlier,
+}: Props) {
   const connection = lastConnection(option.legs);
   // Open from the start when the last change fails: the way out is the news.
   const [open, setOpen] = useState(() => connection?.missed === true);
@@ -371,7 +381,9 @@ export function OptionCard({ option, fromLabel, toLabel, origin, destination, ba
   }, [wantAlternatives]);
 
   return (
-    <li className={`option${open ? " is-open" : ""}${cancelled ? " is-cancelled" : ""}`}>
+    <li
+      className={`option${open ? " is-open" : ""}${cancelled ? " is-cancelled" : ""}${earlier ? " option--earlier" : ""}`}
+    >
       <button
         type="button"
         className="option-head"
@@ -379,6 +391,14 @@ export function OptionCard({ option, fromLabel, toLabel, origin, destination, ba
         aria-controls={detailsId}
         onClick={() => setOpen((v) => !v)}
       >
+        {earlier ? (
+          <span className="badges">
+            <span className="badge badge--earlier">
+              <ClockIcon size={13} strokeWidth={2.5} />
+              {earlier}
+            </span>
+          </span>
+        ) : null}
         {badges.length > 0 ? (
           <span className="badges">
             {badges.map((b) => {

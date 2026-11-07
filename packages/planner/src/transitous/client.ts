@@ -15,6 +15,8 @@ export type TransitousPlanQuery = {
   /** Walk limit at the start only; defaults to maxWalkMeters. */
   maxStartWalkMeters?: number;
   numItineraries?: number;
+  /** How far past `dateTime` departures are searched; MOTIS default otherwise. */
+  searchWindowMinutes?: number;
 };
 
 export type TransitousItinerary = {
@@ -191,6 +193,9 @@ export class TransitousClient {
       url.searchParams.set("maxPostTransitTime", walkSeconds(query.maxWalkMeters));
       // The walk-only route ("direct") within the same walking limit.
       url.searchParams.set("maxDirectTime", walkSeconds(query.maxWalkMeters));
+    }
+    if (query.searchWindowMinutes) {
+      url.searchParams.set("searchWindow", String(query.searchWindowMinutes * 60));
     }
     if (query.dateTime) {
       // MOTIS accepts ISO-8601 timestamps.

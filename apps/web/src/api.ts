@@ -67,6 +67,8 @@ export type PlanRequest = {
   maxWalkMeters?: number;
   maxNearby?: number;
   topK?: number;
+  /** Also fetch trips leaving this many minutes before `dateTime`. */
+  earlierMinutes?: number;
 };
 
 /** Fired when the API says the session is missing or expired. */

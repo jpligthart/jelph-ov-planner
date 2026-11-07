@@ -37,6 +37,12 @@ export type PlanRequest = {
   maxWalkMeters?: number;
   maxNearby?: number;
   topK?: number;
+  /**
+   * Departure searches: also fetch trips leaving up to this many minutes
+   * before `dateTime`, e.g. to offer one that gets you there sooner. Leave it
+   * out when paging to later trips, or the search overlaps what you have.
+   */
+  earlierMinutes?: number;
   /** Include Transitous multimodal results (default: true / env). */
   useTransitous?: boolean;
   transitousClient?: TransitousClient;
@@ -315,6 +321,51 @@ async function nearbyStationHubs(
   return hubs;
 }
 
+function shiftTime(iso: string | undefined, minutes: number): string | undefined {
+  if (minutes === 0) return iso;
+  const base = iso ? Date.parse(iso) : Date.now();
+  if (Number.isNaN(base)) return iso;
+  return new Date(base + minutes * 60_000).toISOString();
+}
+
+const WALK_LEG_RE = /^walk/i;
+
+/** Further than this, a walk to a stop of the same name is a real walk. */
+const SAME_STOP_WALK_METERS = 500;
+
+const sameName = (a: string, b: string) =>
+  a.trim().toLowerCase() === b.trim().toLowerCase();
+
+/**
+ * Planning from or to a stop starts at its NS coordinates, which can lie a
+ * few hundred meters from the platform; Transitous then adds a walk to the
+ * stop itself. You're already there, so drop that walk.
+ */
+function trimStopWalks(trip: NsTrip, from: ResolvedPlace, to: ResolvedPlace): NsTrip {
+  const isStopWalk = (leg: NsTrip["legs"][number] | undefined, stop: string | undefined, place: ResolvedPlace) =>
+    leg !== undefined &&
+    WALK_LEG_RE.test(leg.modality ?? "") &&
+    (leg.distanceMeters ?? 0) <= SAME_STOP_WALK_METERS &&
+    stop !== undefined &&
+    sameName(stop, place.label);
+
+  let legs = trip.legs;
+  if (from.kind === "stop" && legs.length > 1 && isStopWalk(legs[0], legs[0]?.destination, from)) {
+    legs = legs.slice(1);
+  }
+  const last = legs[legs.length - 1];
+  if (to.kind === "stop" && legs.length > 1 && isStopWalk(last, last?.origin, to)) {
+    legs = legs.slice(0, -1);
+  }
+  if (legs === trip.legs) return trip;
+
+  const start = Date.parse(legs[0]?.plannedDeparture ?? "");
+  const end = Date.parse(legs[legs.length - 1]?.plannedArrival ?? "");
+  if (Number.isNaN(start) || Number.isNaN(end)) return trip;
+  const minutes = Math.max(1, Math.round((end - start) / 60_000));
+  return { ...trip, legs, plannedDurationInMinutes: minutes, actualDurationInMinutes: minutes };
+}
+
 /**
  * Transitous returns trips for a limited time span. NS trips beyond it have
  * no bus or tram trip to be compared with, so a detour there (walking to a
@@ -360,6 +411,8 @@ export async function planRoute(
     resolvePlace(client, request.to),
   ]);
 
+  const arriveBy = request.searchForArrival === true;
+  const earlier = arriveBy ? 0 : Math.max(0, request.earlierMinutes ?? 0);
   const wantTransitous = request.useTransitous !== false;
   const transitous =
     request.transitousClient ??
@@ -376,10 +429,13 @@ export async function planRoute(
             fromLng: from.lng,
             toLat: to.lat,
             toLng: to.lng,
-            dateTime: request.dateTime,
+            dateTime: shiftTime(request.dateTime, -earlier),
             searchForArrival: request.searchForArrival,
             maxWalkMeters,
             numItineraries: Math.min(topK, 5),
+            // Starting earlier must not end the search earlier: without the
+            // shift it covers about 20 minutes, so add the earlier ones to that.
+            searchWindowMinutes: earlier > 0 ? earlier + 20 : undefined,
           })
           .then(
             (itineraries) => ({ itineraries, error: undefined }),
@@ -414,7 +470,14 @@ export async function planRoute(
       trips: await tryTrips(client, {
         fromStation: originHub.code,
         toStation: destHub.code,
-        dateTime: request.dateTime,
+        // Times at the station, not at the door: you only reach the station
+        // after the walk to it, and must leave it in time for the walk on.
+        dateTime: arriveBy
+          ? shiftTime(request.dateTime, -walkMinutes(destHub.distanceMeters))
+          : shiftTime(
+              request.dateTime,
+              walkMinutes(originHub.distanceMeters) - earlier,
+            ),
         searchForArrival: request.searchForArrival,
       }),
     }),
@@ -453,7 +516,7 @@ export async function planRoute(
     for (const item of itineraries) {
       options.push(
         buildOption({
-          trip: item.trip,
+          trip: trimStopWalks(item.trip, from, to),
           origin: from,
           destination: to,
           walkMetersOrigin: 0,
@@ -466,7 +529,7 @@ export async function planRoute(
     if (transitousUsed) {
       warnings.push("Multimodale opties toegevoegd via Transitous.");
     }
-    candidates = withinTransitousSpan(options, itineraries, request.searchForArrival === true);
+    candidates = withinTransitousSpan(options, itineraries, arriveBy);
   }
 
   const ranked = rankOptions(dropDominated(dedupeOptions(candidates))).slice(

@@ -31,6 +31,7 @@ const PlanBodySchema = z.object({
   maxWalkMeters: z.number().int().positive().max(5000).optional(),
   maxNearby: z.number().int().positive().max(5).optional(),
   topK: z.number().int().positive().max(20).optional(),
+  earlierMinutes: z.number().int().min(0).max(30).optional(),
 });
 
 const AlternativesBodySchema = z.object({
@@ -145,6 +146,7 @@ app.post("/api/plan", { onRequest: withBudget(planBudget) }, async (request, rep
     maxWalkMeters: parsed.data.maxWalkMeters,
     maxNearby: parsed.data.maxNearby,
     topK: parsed.data.topK,
+    earlierMinutes: parsed.data.earlierMinutes,
   });
 
   const publicResult = toPublicPlanResult(result);
