@@ -1511,6 +1511,119 @@ button {
   min-height: 2.75rem;
 }
 
+/* Stops a ride makes in between, opened from the ride's row. */
+/*
+ * Right-aligned, so the row itself reads as just the ride; a side note in
+ * the same place on every ride, only the chevron hints at more.
+ */
+.it-stops-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  margin-left: auto;
+  padding: 0 0 0 0.5rem;
+  font-size: 0.82rem;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  vertical-align: baseline;
+  white-space: nowrap;
+}
+
+.it-move.has-stops {
+  cursor: pointer;
+}
+
+.it-move.has-stops .it-note {
+  flex-wrap: wrap;
+  row-gap: 0.1rem;
+}
+
+/* The ride text shrinks beside its icon rather than wrapping below it. */
+.it-move.has-stops .it-note > span:first-of-type {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+/* Phones: no room beside the ride, so the stops get a line of their own. */
+@media (max-width: 959px) {
+  .it-move.has-stops .it-stops-toggle {
+    flex-basis: 100%;
+    justify-content: flex-end;
+  }
+}
+
+.it-move.has-stops:hover .it-stops-toggle {
+  color: var(--ink-2);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.it-note .it-stops-toggle svg {
+  color: inherit;
+  opacity: 0.7;
+  transition: transform 0.15s;
+}
+
+.it-stops-toggle[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+
+/*
+ * Stops in between: smaller and lighter than the stops you use, on a light
+ * tint of the vehicle's colour so they read as one block of that ride. The
+ * negative margin widens the tint without moving the columns.
+ */
+.it-via {
+  min-height: 1.45rem;
+  margin: 0 -0.5rem;
+  padding: 0 0.5rem;
+  background: color-mix(in srgb, var(--mode) 8%, transparent);
+}
+
+.it-via--first {
+  padding-top: 0.25rem;
+  border-top-left-radius: var(--radius-sm);
+  border-top-right-radius: var(--radius-sm);
+}
+
+.it-via--last {
+  padding-bottom: 0.25rem;
+  margin-bottom: 0.3rem;
+  border-bottom-left-radius: var(--radius-sm);
+  border-bottom-right-radius: var(--radius-sm);
+}
+
+.it-via .it-time {
+  font-weight: 500;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.it-via .it-dot {
+  width: 8px;
+  height: 8px;
+  border-width: 2px;
+  border-color: var(--mode);
+}
+
+.it-via-name {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding-left: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+
+.it-via.is-cancelled .it-via-name,
+.it-via.is-cancelled .it-time {
+  text-decoration: line-through;
+  color: var(--muted);
+}
+
 .it-move.mode-walk .it-note {
   color: var(--muted);
 }

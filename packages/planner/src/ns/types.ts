@@ -8,6 +8,17 @@ export type Station = {
   distanceMeters?: number;
 };
 
+/** A stop between a leg's origin and destination where the vehicle halts. */
+export type LegStop = {
+  name: string;
+  /** Expected times: real-time when known, else the timetable. */
+  arrival?: string;
+  departure?: string;
+  scheduledArrival?: string;
+  scheduledDeparture?: string;
+  cancelled?: boolean;
+};
+
 export type TripLegSummary = {
   origin: string;
   destination: string;
@@ -31,6 +42,8 @@ export type TripLegSummary = {
   scheduledDestinationTrack?: string;
   /** Route line as an encoded polyline, when the source provides one. */
   geometry?: { points: string; precision: number };
+  /** Stops in between, in order; without the ones the vehicle passes. */
+  stops?: LegStop[];
   /** Stop coordinates, when the source provides them. */
   originLat?: number;
   originLng?: number;

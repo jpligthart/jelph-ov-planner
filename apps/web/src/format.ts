@@ -208,6 +208,17 @@ export type Step = {
   /** Timetable track, only when the vehicle uses another one. */
   originTrackWas?: string;
   destinationTrackWas?: string;
+  /** Stops the vehicle makes in between. */
+  stops?: ViaStop[];
+};
+
+export type ViaStop = {
+  name: string;
+  arrive?: Date;
+  depart?: Date;
+  arriveDelay: number;
+  departDelay: number;
+  cancelled?: boolean;
 };
 
 /**
@@ -267,6 +278,16 @@ export function buildSteps(option: PlanOption, fromLabel: string, toLabel: strin
       originTrackWas: vehicle ? changedTrack(leg.originTrack, leg.scheduledOriginTrack) : undefined,
       destinationTrackWas: vehicle
         ? changedTrack(leg.destinationTrack, leg.scheduledDestinationTrack)
+        : undefined,
+      stops: vehicle
+        ? leg.stops?.map((stop) => ({
+            name: stop.name,
+            arrive: shift(stop.arrival, 0),
+            depart: shift(stop.departure, 0),
+            arriveDelay: delayMinutes(stop.arrival, stop.scheduledArrival),
+            departDelay: delayMinutes(stop.departure, stop.scheduledDeparture),
+            cancelled: stop.cancelled,
+          }))
         : undefined,
     });
   }

@@ -1,5 +1,5 @@
 import type { NsClient } from "./client.js";
-import type { NsTrip, TripLegSummary, TripsQuery } from "./types.js";
+import type { LegStop, NsTrip, TripLegSummary, TripsQuery } from "./types.js";
 
 type RawStop = {
   name?: string;
@@ -9,6 +9,18 @@ type RawStop = {
   actualTrack?: string;
   lat?: number;
   lng?: number;
+};
+
+/** A stop on the leg's route, origin and destination included. */
+type RawLegStop = {
+  name?: string;
+  plannedArrivalDateTime?: string;
+  actualArrivalDateTime?: string;
+  plannedDepartureDateTime?: string;
+  actualDepartureDateTime?: string;
+  cancelled?: boolean;
+  /** The train runs through without stopping. */
+  passing?: boolean;
 };
 
 type RawLeg = {
@@ -26,6 +38,7 @@ type RawLeg = {
   distanceInMeters?: number;
   changePossible?: boolean;
   reachable?: boolean;
+  stops?: RawLegStop[];
 };
 
 type RawTrip = {
@@ -86,6 +99,21 @@ function extractRawTrips(json: unknown): RawTrip[] {
   return trips;
 }
 
+function mapStops(stops: RawLegStop[] | undefined): LegStop[] | undefined {
+  if (!Array.isArray(stops) || stops.length <= 2) return undefined;
+  return stops
+    .slice(1, -1)
+    .filter((s) => !s.passing && s.name)
+    .map((s) => ({
+      name: s.name!,
+      arrival: s.actualArrivalDateTime ?? s.plannedArrivalDateTime,
+      departure: s.actualDepartureDateTime ?? s.plannedDepartureDateTime,
+      scheduledArrival: s.plannedArrivalDateTime,
+      scheduledDeparture: s.plannedDepartureDateTime,
+      cancelled: s.cancelled === true || undefined,
+    }));
+}
+
 function mapLeg(leg: RawLeg): TripLegSummary {
   return {
     origin: leg.origin?.name ?? "?",
@@ -110,6 +138,7 @@ function mapLeg(leg: RawLeg): TripLegSummary {
       leg.destination?.actualTrack ?? leg.destination?.plannedTrack,
     scheduledOriginTrack: leg.origin?.plannedTrack,
     scheduledDestinationTrack: leg.destination?.plannedTrack,
+    stops: mapStops(leg.stops),
     originLat: leg.origin?.lat,
     originLng: leg.origin?.lng,
     destinationLat: leg.destination?.lat,

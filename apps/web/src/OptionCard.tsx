@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useId, useState, type CSSProperties } from "react";
+import { Fragment, Suspense, lazy, useEffect, useId, useState, type CSSProperties } from "react";
 import { fetchAlternatives, type ConnectionAlternative, type PlanLeg, type PlanOption } from "./api";
 import { BADGE_LABELS, SEARCH_RADIUS_METERS, type Badge } from "./filters";
 import {
@@ -153,6 +153,14 @@ function railPaint(item?: ItineraryItem): string {
 /** Stops are dots, moves are the line between them, waits sit at a stop. */
 function Itinerary({ id, steps }: { id: string; steps: Step[] }) {
   const items = buildItinerary(steps);
+  // Rides whose stops in between are shown, by item index.
+  const [openRides, setOpenRides] = useState<ReadonlySet<number>>(() => new Set());
+  const toggleRide = (i: number) =>
+    setOpenRides((open) => {
+      const next = new Set(open);
+      if (!next.delete(i)) next.add(i);
+      return next;
+    });
   return (
     <ol className="itinerary" id={id}>
       {items.map((item, i) => {
@@ -213,30 +221,82 @@ function Itinerary({ id, steps }: { id: string; steps: Step[] }) {
         }
         const s = item.step;
         const walk = s.kind === "walk";
+        const stops = walk ? [] : (s.stops ?? []);
+        const showStops = stops.length > 0 && openRides.has(i);
         return (
-          <li
-            key={i}
-            className={`it-row it-move mode-${s.kind}${s.cancelled ? " is-cancelled" : ""}`}
-          >
-            <span className="it-time" />
-            <span className="it-rail" aria-hidden="true" />
-            <span className="it-note">
-              <ModeIcon kind={s.kind} size={14} />
-              {walk ? (
-                <span>
-                  {formatDuration(s.minutes)} lopen
-                  {item.toward ? ` ${item.toward}` : ""}
-                  {s.meters ? ` · ${formatDistance(s.meters)}` : ""}
-                </span>
-              ) : (
-                <span>
-                  <strong>{s.label}</strong> → {s.destination}
-                  <span className="it-meta"> · {formatDuration(s.minutes)}</span>
-                </span>
-              )}
-              {s.cancelled ? <span className="fact-alert">Vervalt</span> : null}
-            </span>
-          </li>
+          <Fragment key={i}>
+            <li
+              className={`it-row it-move mode-${s.kind}${s.cancelled ? " is-cancelled" : ""}${stops.length > 0 ? " has-stops" : ""}`}
+              // The whole row opens the stops, a bigger target than the text;
+              // the button inside keeps it reachable by keyboard.
+              onClick={stops.length > 0 ? () => toggleRide(i) : undefined}
+            >
+              <span className="it-time" />
+              <span className="it-rail" aria-hidden="true" />
+              <span className="it-note">
+                <ModeIcon kind={s.kind} size={14} />
+                {walk ? (
+                  <span>
+                    {formatDuration(s.minutes)} lopen
+                    {item.toward ? ` ${item.toward}` : ""}
+                    {s.meters ? ` · ${formatDistance(s.meters)}` : ""}
+                  </span>
+                ) : (
+                  <span>
+                    <strong>{s.label}</strong> → {s.destination}
+                    <span className="it-meta"> · {formatDuration(s.minutes)}</span>
+                  </span>
+                )}
+                {s.cancelled ? <span className="fact-alert">Vervalt</span> : null}
+                {stops.length > 0 ? (
+                  <button
+                    type="button"
+                    className="it-stops-toggle"
+                    aria-expanded={showStops}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleRide(i);
+                    }}
+                  >
+                    {stops.length === 1 ? "1 tussenstop" : `${stops.length} tussenstops`}
+                    <ChevronIcon size={13} />
+                  </button>
+                ) : null}
+              </span>
+            </li>
+            {showStops
+              ? stops.map((stop, j) => {
+                  // One time per stop, when it leaves again; a longer halt is
+                  // mentioned, as that's when you could stretch your legs.
+                  const dwell =
+                    stop.arrive && stop.depart
+                      ? Math.round((stop.depart.getTime() - stop.arrive.getTime()) / 60000)
+                      : 0;
+                  return (
+                    <li
+                      key={`${i}-${j}`}
+                      className={`it-row it-move it-via mode-${s.kind}${j === 0 ? " it-via--first" : ""}${j === stops.length - 1 ? " it-via--last" : ""}${stop.cancelled ? " is-cancelled" : ""}`}
+                    >
+                      <span className="it-time">
+                        {stop.depart ? (
+                          <Clock at={stop.depart} delay={stop.departDelay} label="vertrek" />
+                        ) : (
+                          <Clock at={stop.arrive} delay={stop.arriveDelay} label="aankomst" />
+                        )}
+                      </span>
+                      <span className="it-rail" aria-hidden="true">
+                        <span className="it-dot" />
+                      </span>
+                      <span className="it-via-name">
+                        {stop.name}
+                        {dwell >= 2 ? <span className="it-meta">· {dwell} min stop</span> : null}
+                        {stop.cancelled ? <span className="fact-alert">Vervalt</span> : null}
+                      </span>
+                    </li>
+                  );
+                })
+              : null}
+          </Fragment>
         );
       })}
     </ol>

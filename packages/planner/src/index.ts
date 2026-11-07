@@ -18,6 +18,7 @@ export {
 } from "./ns/places.js";
 export { searchTrips } from "./ns/trips.js";
 export type {
+  LegStop,
   Station,
   TripLegSummary,
   NsTrip,

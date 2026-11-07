@@ -1,4 +1,4 @@
-import type { NsTrip, TripLegSummary } from "../ns/types.js";
+import type { LegStop, NsTrip, TripLegSummary } from "../ns/types.js";
 import { WALK_METERS_PER_MINUTE } from "../planner/geo.js";
 
 const DEFAULT_BASE = "https://api.transitous.org";
@@ -40,6 +40,7 @@ type RawPlace = {
   scheduledDeparture?: string;
   track?: string;
   scheduledTrack?: string;
+  cancelled?: boolean;
 };
 
 type RawLeg = {
@@ -55,7 +56,7 @@ type RawLeg = {
   routeShortName?: string;
   headsign?: string;
   legGeometry?: { points?: string; precision?: number };
-  intermediateStops?: unknown[];
+  intermediateStops?: RawPlace[];
 };
 
 type RawItinerary = {
@@ -72,6 +73,20 @@ function modalityLabel(leg: RawLeg): string {
   if (mode === "WALK") return "Walk";
   if (leg.routeShortName) return `${mode} ${leg.routeShortName}`;
   return mode;
+}
+
+function mapStops(stops: RawPlace[] | undefined): LegStop[] | undefined {
+  if (!Array.isArray(stops) || stops.length === 0) return undefined;
+  return stops
+    .filter((s) => s.name)
+    .map((s) => ({
+      name: s.name!,
+      arrival: s.arrival ?? s.scheduledArrival,
+      departure: s.departure ?? s.scheduledDeparture,
+      scheduledArrival: s.scheduledArrival,
+      scheduledDeparture: s.scheduledDeparture,
+      cancelled: s.cancelled === true || undefined,
+    }));
 }
 
 function mapLeg(leg: RawLeg): TripLegSummary {
@@ -101,6 +116,7 @@ function mapLeg(leg: RawLeg): TripLegSummary {
     destinationTrack: leg.to?.track ?? leg.to?.scheduledTrack,
     scheduledOriginTrack: leg.from?.scheduledTrack,
     scheduledDestinationTrack: leg.to?.scheduledTrack,
+    stops: mapStops(leg.intermediateStops),
     geometry: leg.legGeometry?.points
       ? { points: leg.legGeometry.points, precision: leg.legGeometry.precision ?? 6 }
       : undefined,

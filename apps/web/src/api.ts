@@ -9,6 +9,16 @@ export type PlaceHit = {
   city?: string;
 };
 
+/** A stop between a leg's origin and destination where the vehicle halts. */
+export type PlanStop = {
+  name: string;
+  arrival?: string;
+  departure?: string;
+  scheduledArrival?: string;
+  scheduledDeparture?: string;
+  cancelled?: boolean;
+};
+
 export type PlanLeg = {
   origin: string;
   destination: string;
@@ -26,6 +36,8 @@ export type PlanLeg = {
   originTrack?: string;
   destinationTrack?: string;
   scheduledOriginTrack?: string;
+  /** Stops in between, in order. */
+  stops?: PlanStop[];
   scheduledDestinationTrack?: string;
   /** Route line as an encoded polyline (Transitous legs only). */
   geometry?: { points: string; precision: number };
