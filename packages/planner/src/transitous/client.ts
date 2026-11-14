@@ -1,4 +1,4 @@
-import type { LegStop, NsTrip, TripLegSummary } from "../ns/types.js";
+import type { LegStop, NsTrip, TripLegSummary, TripMessage } from "../ns/types.js";
 import { WALK_METERS_PER_MINUTE } from "../planner/geo.js";
 
 const DEFAULT_BASE = "https://api.transitous.org";
@@ -30,6 +30,13 @@ export type TransitousItinerary = {
   direct?: boolean;
 };
 
+/** A GTFS-RT service alert, as MOTIS attaches it to a stop or leg. */
+type RawAlert = {
+  headerText?: string;
+  effect?: string;
+  impactPeriod?: Array<{ start?: string; end?: string }>;
+};
+
 type RawPlace = {
   name?: string;
   lat?: number;
@@ -41,6 +48,7 @@ type RawPlace = {
   track?: string;
   scheduledTrack?: string;
   cancelled?: boolean;
+  alerts?: RawAlert[];
 };
 
 type RawLeg = {
@@ -55,6 +63,9 @@ type RawLeg = {
   distance?: number;
   routeShortName?: string;
   headsign?: string;
+  /** The trip is cancelled (real-time); MOTIS also sets it on some walks. */
+  cancelled?: boolean;
+  alerts?: RawAlert[];
   legGeometry?: { points?: string; precision?: number };
   intermediateStops?: RawPlace[];
 };
@@ -89,6 +100,73 @@ function mapStops(stops: RawPlace[] | undefined): LegStop[] | undefined {
     }));
 }
 
+/**
+ * The ride can't be taken: the trip is cancelled, or it skips the stop where
+ * you get on or off. Walks are left alone: MOTIS marks a change walk between
+ * two stops as cancelled when nothing is, which would scare for no reason.
+ */
+function rideCancelled(leg: RawLeg): boolean {
+  if ((leg.mode ?? "").toUpperCase() === "WALK") return false;
+  return (
+    leg.cancelled === true ||
+    leg.from?.cancelled === true ||
+    leg.to?.cancelled === true
+  );
+}
+
+/** Effects that mean the ride may not run, or not where you need it. */
+const ALERT_EFFECTS = new Set(["NO_SERVICE", "STOP_MOVED"]);
+const WARNING_EFFECTS = new Set([
+  "REDUCED_SERVICE",
+  "SIGNIFICANT_DELAYS",
+  "DETOUR",
+  "MODIFIED_SERVICE",
+]);
+
+/**
+ * Service alerts on the ride and its stops that apply while you ride. MOTIS
+ * also returns alerts for later, e.g. a holiday timetable next month. A stop's
+ * alert may be about another line calling there (works on metro D shown for
+ * metro E), so from stops only the ones that change the trip are kept.
+ */
+function rideMessages(leg: RawLeg): TripMessage[] | undefined {
+  if ((leg.mode ?? "").toUpperCase() === "WALK") return undefined;
+  const start = Date.parse(leg.startTime ?? leg.scheduledStartTime ?? "");
+  const end = Date.parse(leg.endTime ?? leg.scheduledEndTime ?? "");
+  const applies = (alert: RawAlert) => {
+    const periods = alert.impactPeriod ?? [];
+    if (periods.length === 0 || !Number.isFinite(start)) return true;
+    return periods.some((p) => {
+      const from = p.start ? Date.parse(p.start) : -Infinity;
+      const to = p.end ? Date.parse(p.end) : Infinity;
+      return from <= (Number.isFinite(end) ? end : start) && to >= start;
+    });
+  };
+  const alerts = [
+    ...(leg.alerts ?? []).map((alert) => ({ alert, atStop: false })),
+    ...[...(leg.from?.alerts ?? []), ...(leg.to?.alerts ?? [])].map((alert) => ({
+      alert,
+      atStop: true,
+    })),
+  ];
+  const seen = new Set<string>();
+  const list: TripMessage[] = [];
+  for (const { alert, atStop } of alerts) {
+    const text = alert.headerText?.trim();
+    if (!text || seen.has(text) || !applies(alert)) continue;
+    const effect = (alert.effect ?? "").toUpperCase();
+    const level: TripMessage["level"] = ALERT_EFFECTS.has(effect)
+      ? "alert"
+      : WARNING_EFFECTS.has(effect)
+        ? "warning"
+        : "info";
+    if (atStop && level === "info") continue;
+    seen.add(text);
+    list.push({ text, level });
+  }
+  return list.length > 0 ? list : undefined;
+}
+
 function mapLeg(leg: RawLeg): TripLegSummary {
   return {
     origin: leg.from?.name && leg.from.name !== "START" ? leg.from.name : "Start",
@@ -107,7 +185,8 @@ function mapLeg(leg: RawLeg): TripLegSummary {
     scheduledDeparture: leg.scheduledStartTime ?? leg.from?.scheduledDeparture,
     scheduledArrival: leg.scheduledEndTime ?? leg.to?.scheduledArrival,
     modality: modalityLabel(leg),
-    cancelled: false,
+    cancelled: rideCancelled(leg),
+    messages: rideMessages(leg),
     distanceMeters:
       typeof leg.distance === "number" && Number.isFinite(leg.distance)
         ? Math.round(leg.distance)
