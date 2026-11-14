@@ -689,10 +689,26 @@ button {
   width: 100%;
 }
 
+/* Sized to its digits (ch) rather than a fixed rem width: phones with a
+   larger system font, or a browser that adds its own inner spacing, then
+   still show all four digits instead of clipping the last one. */
 .field--time input {
-  width: 5.25rem;
+  width: calc(6ch + 1rem + 2px);
+  min-width: max-content;
+  padding: 0 0.5rem;
   text-align: center;
   font-variant-numeric: tabular-nums;
+}
+
+/* Drop the browsers' own inner margins and padding around the value. */
+.field--time input::-webkit-date-and-time-value {
+  margin: 0;
+  text-align: center;
+}
+
+.field--time input::-webkit-datetime-edit,
+.field--time input::-webkit-datetime-edit-fields-wrapper {
+  padding: 0;
 }
 
 /* Typing works on desktop and touch opens the native wheel; the icon only costs space. */
