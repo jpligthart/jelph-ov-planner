@@ -1,5 +1,11 @@
 import { Fragment, Suspense, lazy, useEffect, useId, useState, type CSSProperties } from "react";
-import { fetchAlternatives, type ConnectionAlternative, type PlanLeg, type PlanOption } from "./api";
+import {
+  fetchAlternatives,
+  type ConnectionAlternative,
+  type PlanLeg,
+  type PlanMessage,
+  type PlanOption,
+} from "./api";
 import { BADGE_LABELS, SEARCH_RADIUS_METERS, type Badge } from "./filters";
 import {
   buildItinerary,
@@ -150,6 +156,44 @@ function railPaint(item?: ItineraryItem): string {
   return `var(--mode-${item.step.kind})`;
 }
 
+/**
+ * What NS says about a ride, under it on the rail: "Rijdt niet", a shorter
+ * train, or a train that skips part of its route but not your part.
+ */
+function RideNotices({ step }: { step: Step }) {
+  const notices: PlanMessage[] = [...(step.messages ?? [])];
+  if (step.partCancelled) {
+    notices.push({ text: "Rijdt niet op de hele route; jouw deel rijdt wel", level: "warning" });
+  }
+  if (notices.length === 0) return null;
+  return (
+    <li className={`it-row it-move it-notices mode-${step.kind}`}>
+      <span className="it-time" />
+      <span className="it-rail" aria-hidden="true" />
+      <ul className="it-notice-list">
+        {notices.map((n, i) => (
+          <li key={i} className={`trip-notice is-${n.level}`}>
+            {n.text}
+          </li>
+        ))}
+      </ul>
+    </li>
+  );
+}
+
+/**
+ * The notice for the card's head: NS's main one for the trip, else the
+ * first ride notice that matters. Plain info stays inside the trip.
+ */
+function headNotice(option: PlanOption): PlanMessage | undefined {
+  if (option.message) return option.message;
+  for (const leg of option.legs) {
+    const notice = leg.messages?.find((m) => m.level !== "info");
+    if (notice) return notice;
+  }
+  return undefined;
+}
+
 /** Stops are dots, moves are the line between them, waits sit at a stop. */
 function Itinerary({ id, steps }: { id: string; steps: Step[] }) {
   const items = buildItinerary(steps);
@@ -264,6 +308,7 @@ function Itinerary({ id, steps }: { id: string; steps: Step[] }) {
                 ) : null}
               </span>
             </li>
+            {!walk ? <RideNotices step={s} /> : null}
             {showStops
               ? stops.map((stop, j) => {
                   // One time per stop, when it leaves again; a longer halt is
@@ -414,6 +459,7 @@ export function OptionCard({
   const transit = steps.filter((s) => s.kind !== "walk");
   const cancelled = option.legs.some((l) => l.cancelled);
   const missed = option.legs.some((l) => l.missedConnection);
+  const notice = headNotice(option);
 
   // New times after a refresh: look the backups up again when needed.
   useEffect(() => setAlternatives(null), [option]);
@@ -520,6 +566,9 @@ export function OptionCard({
           </span>
           <ChevronIcon size={18} className="option-chevron" />
         </span>
+        {notice ? (
+          <span className={`trip-notice option-notice is-${notice.level}`}>{notice.text}</span>
+        ) : null}
       </button>
 
       {open ? <Itinerary id={detailsId} steps={steps} /> : null}

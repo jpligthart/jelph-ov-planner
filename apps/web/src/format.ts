@@ -1,4 +1,4 @@
-import type { PlanLeg, PlanOption } from "./api";
+import type { PlanLeg, PlanMessage, PlanOption } from "./api";
 
 /** Average walking speed, matches the planner's estimate. */
 const WALK_METERS_PER_MINUTE = 80;
@@ -198,6 +198,10 @@ export type Step = {
   minutes: number;
   meters?: number;
   cancelled?: boolean;
+  /** Part of the vehicle's route is cancelled, not the part you ride. */
+  partCancelled?: boolean;
+  /** Notices for this ride, e.g. a shorter train or a disruption. */
+  messages?: PlanMessage[];
   /** The change onto this step can't be made. */
   missed?: boolean;
   originTrack?: string;
@@ -270,6 +274,8 @@ export function buildSteps(option: PlanOption, fromLabel: string, toLabel: strin
       minutes,
       meters: kind === "walk" ? walkLegMeters(leg) : undefined,
       cancelled: leg.cancelled,
+      partCancelled: leg.partCancelled,
+      messages: leg.messages,
       missed: leg.missedConnection,
       originTrack: leg.originTrack,
       destinationTrack: leg.destinationTrack,

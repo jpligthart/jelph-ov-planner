@@ -1527,6 +1527,41 @@ button {
   min-height: 2.75rem;
 }
 
+/* NS notices for a trip or ride: alert when it may not work, else a warning. */
+.trip-notice {
+  display: block;
+  padding: 0.35rem 0.6rem;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.35;
+  background: var(--surface-2);
+  color: var(--ink-2);
+}
+
+.trip-notice.is-warning {
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+
+.trip-notice.is-alert {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+/* Under the ride, on its own piece of rail. */
+.it-move.it-notices {
+  min-height: 0;
+}
+
+.it-notice-list {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0.45rem;
+  display: grid;
+  gap: 0.3rem;
+}
+
 /* Stops a ride makes in between, opened from the ride's row. */
 /*
  * Right-aligned, so the row itself reads as just the ride; a side note in

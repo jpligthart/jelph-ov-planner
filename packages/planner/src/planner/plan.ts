@@ -238,6 +238,7 @@ function buildOption(args: {
     walkMinutesDestination: walkMinDest,
     transfers: args.trip.transfers,
     status: args.trip.status,
+    message: args.trip.message,
     departure: firstDeparture(args.trip),
     arrival: lastArrival(args.trip),
     fromStation: args.fromHub ? hubAsStation(args.fromHub) : undefined,
@@ -577,6 +578,10 @@ export type PublicPlanResult = {
       name: string;
       distanceMeters?: number;
     };
+    /** Source trip status, e.g. NORMAL, CANCELLED, DISRUPTION. */
+    status: string;
+    /** The source's main notice for the trip. */
+    message?: NsTrip["message"];
     notes: string[];
     legs: NsTrip["legs"];
   }>;
@@ -635,6 +640,8 @@ export function toPublicPlanResult(result: PlanResult): PublicPlanResult {
               : undefined,
           }
         : undefined,
+      status: o.status,
+      message: o.message,
       notes: o.notes,
       legs: o.legs,
     })),

@@ -1,5 +1,11 @@
 import type { NsClient } from "./client.js";
-import type { LegStop, NsTrip, TripLegSummary, TripsQuery } from "./types.js";
+import type {
+  LegStop,
+  NsTrip,
+  TripLegSummary,
+  TripMessage,
+  TripsQuery,
+} from "./types.js";
 
 type RawStop = {
   name?: string;
@@ -23,8 +29,14 @@ type RawLegStop = {
   passing?: boolean;
 };
 
+/** Shown by NS as a coloured banner; `type` is e.g. "warning" or "error". */
+type RawNesProperties = { type?: string };
+
 type RawLeg = {
   cancelled?: boolean;
+  /** Part of the train's route is cancelled; maybe not the part you ride. */
+  partCancelled?: boolean;
+  messages?: Array<{ text?: string; type?: string; nesProperties?: RawNesProperties }>;
   origin?: RawStop;
   destination?: RawStop;
   product?: {
@@ -51,6 +63,12 @@ type RawTrip = {
   optimal?: boolean;
   type?: string;
   legs?: RawLeg[];
+  /** NS's main notice for the trip, e.g. "Trein rijdt niet". */
+  primaryMessage?: {
+    title?: string;
+    type?: string;
+    nesProperties?: RawNesProperties;
+  };
 };
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -114,7 +132,41 @@ function mapStops(stops: RawLegStop[] | undefined): LegStop[] | undefined {
     }));
 }
 
+/**
+ * The leg can't be ridden: the whole train is cancelled, or it no longer
+ * calls where you get on or off. NS then only sets `partCancelled` on the
+ * leg and `cancelled` on that stop, so the stop ends must be checked too.
+ */
+function legCancelled(leg: RawLeg): boolean {
+  if (leg.cancelled === true) return true;
+  const stops = Array.isArray(leg.stops) ? leg.stops : [];
+  const first = stops[0];
+  const last = stops[stops.length - 1];
+  return first?.cancelled === true || last?.cancelled === true;
+}
+
+function messageLevel(nes?: RawNesProperties): TripMessage["level"] {
+  const type = (nes?.type ?? "").toLowerCase();
+  if (type === "error" || type === "alert") return "alert";
+  if (type === "warning") return "warning";
+  return "info";
+}
+
+function legMessages(leg: RawLeg): TripMessage[] | undefined {
+  if (!Array.isArray(leg.messages)) return undefined;
+  const seen = new Set<string>();
+  const list: TripMessage[] = [];
+  for (const m of leg.messages) {
+    const text = m.text?.trim();
+    if (!text || seen.has(text)) continue;
+    seen.add(text);
+    list.push({ text, level: messageLevel(m.nesProperties) });
+  }
+  return list.length > 0 ? list : undefined;
+}
+
 function mapLeg(leg: RawLeg): TripLegSummary {
+  const cancelled = legCancelled(leg);
   return {
     origin: leg.origin?.name ?? "?",
     destination: leg.destination?.name ?? "?",
@@ -129,7 +181,9 @@ function mapLeg(leg: RawLeg): TripLegSummary {
       leg.mode?.name ??
       leg.travelType ??
       leg.product?.type,
-    cancelled: leg.cancelled === true,
+    cancelled,
+    partCancelled: !cancelled && leg.partCancelled === true ? true : undefined,
+    messages: legMessages(leg),
     missedConnection:
       leg.changePossible === false || leg.reachable === false ? true : undefined,
     distanceMeters: leg.distanceInMeters ?? leg.distance,
@@ -150,16 +204,32 @@ function mapTrip(raw: RawTrip): NsTrip | null {
   if (!raw.uid && !raw.ctxRecon) return null;
   const planned = Number(raw.plannedDurationInMinutes ?? 0);
   const actual = Number(raw.actualDurationInMinutes ?? planned);
+  const status = String(raw.status ?? "NORMAL");
+  const legs = Array.isArray(raw.legs) ? raw.legs.map(mapLeg) : [];
+  // NS calls the whole trip off but no leg says which: then it is the one
+  // with a cancelled part, so the trip never looks like it runs normally.
+  if (status === "CANCELLED" && !legs.some((l) => l.cancelled)) {
+    for (const leg of legs) {
+      if (leg.partCancelled) {
+        leg.cancelled = true;
+        leg.partCancelled = undefined;
+      }
+    }
+  }
+  const title = raw.primaryMessage?.title?.trim();
   return {
     uid: String(raw.uid ?? raw.ctxRecon),
     ctxRecon: raw.ctxRecon,
     plannedDurationInMinutes: Number.isFinite(planned) ? planned : 0,
     actualDurationInMinutes: Number.isFinite(actual) ? actual : 0,
     transfers: Number(raw.transfers ?? 0),
-    status: String(raw.status ?? "NORMAL"),
+    status,
+    message: title
+      ? { text: title, level: messageLevel(raw.primaryMessage?.nesProperties) }
+      : undefined,
     optimal: raw.optimal,
     type: raw.type,
-    legs: Array.isArray(raw.legs) ? raw.legs.map(mapLeg) : [],
+    legs,
     raw,
   };
 }

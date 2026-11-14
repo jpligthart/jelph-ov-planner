@@ -19,6 +19,13 @@ export type LegStop = {
   cancelled?: boolean;
 };
 
+/** A notice from the source, e.g. "Trein rijdt niet" or "Kortere trein". */
+export type TripMessage = {
+  text: string;
+  /** How loud to show it: alert (it may not work), warning, or info. */
+  level: "alert" | "warning" | "info";
+};
+
 export type TripLegSummary = {
   origin: string;
   destination: string;
@@ -29,7 +36,12 @@ export type TripLegSummary = {
   scheduledDeparture?: string;
   scheduledArrival?: string;
   modality?: string;
+  /** The leg can't be ridden: cancelled, or it skips where you get on/off. */
   cancelled?: boolean;
+  /** Part of the vehicle's route is cancelled, but not where you ride it. */
+  partCancelled?: boolean;
+  /** Notices for this leg, e.g. a shorter train or a disruption. */
+  messages?: TripMessage[];
   /** The change onto this leg can't be made (see markMissedConnections). */
   missedConnection?: boolean;
   /** Leg distance in meters when the source provides it (walk legs). */
@@ -57,7 +69,10 @@ export type NsTrip = {
   plannedDurationInMinutes: number;
   actualDurationInMinutes: number;
   transfers: number;
+  /** NS trip status, e.g. NORMAL, CANCELLED, DISRUPTION, ALTERNATIVE_TRANSPORT. */
   status: string;
+  /** The source's main notice for the whole trip. */
+  message?: TripMessage;
   optimal?: boolean;
   type?: string;
   legs: TripLegSummary[];

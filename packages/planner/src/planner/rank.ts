@@ -12,6 +12,8 @@ export type RankedOption = {
   walkMinutesDestination: number;
   transfers: number;
   status: string;
+  /** The source's main notice for the trip, e.g. "Trein rijdt niet". */
+  message?: NsTrip["message"];
   departure?: string;
   arrival?: string;
   fromStation?: Station;

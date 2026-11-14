@@ -19,6 +19,13 @@ export type PlanStop = {
   cancelled?: boolean;
 };
 
+/** A notice from the source, e.g. "Trein rijdt niet" or "Kortere trein". */
+export type PlanMessage = {
+  text: string;
+  /** alert: the trip may not work; warning: it works, but mind this. */
+  level: "alert" | "warning" | "info";
+};
+
 export type PlanLeg = {
   origin: string;
   destination: string;
@@ -29,7 +36,11 @@ export type PlanLeg = {
   scheduledDeparture?: string;
   scheduledArrival?: string;
   modality?: string;
+  /** Can't be ridden: cancelled, or it skips where you get on or off. */
   cancelled?: boolean;
+  /** Part of the vehicle's route is cancelled, but not where you ride it. */
+  partCancelled?: boolean;
+  messages?: PlanMessage[];
   /** The change onto this leg can't be made (NS says so, or times overlap). */
   missedConnection?: boolean;
   distanceMeters?: number;
@@ -61,6 +72,10 @@ export type PlanOption = {
   arrival?: string;
   fromStation?: { code: string; name: string; distanceMeters?: number };
   toStation?: { code: string; name: string; distanceMeters?: number };
+  /** Source trip status, e.g. NORMAL, CANCELLED, DISRUPTION. */
+  status?: string;
+  /** The source's main notice for the whole trip. */
+  message?: PlanMessage;
   notes: string[];
   legs: PlanLeg[];
 };

@@ -21,6 +21,7 @@ export type {
   LegStop,
   Station,
   TripLegSummary,
+  TripMessage,
   NsTrip,
   TripsQuery,
 } from "./ns/types.js";
